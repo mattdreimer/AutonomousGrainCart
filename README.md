@@ -10,4 +10,24 @@ Below is the link for the DroneKit-Python version 2 migration guide. This script
 
 [Drone API Migration Guide](http://python.dronekit.io/guide/migrating.html)
 
+# Installation instruction for OSX
+
+Install GPSd
+'brew install gpsd'
+
+Install the necessary dependencies for Pygame & dependencies
+
+`brew install mercurial python sdl sdl_image sdl_mixer sdl_ttf smpeg portmidi`
+`pip install hg+http://bitbucket.org/pygame/pygame`
+
+Install MAVProxy
+
+'brew tap homebrew/science'
+'brew install wxmac wxpython opencv`
+`pip install numpy pyparsing MAVProxy`
+
+Install DroneKit 1.5.0
+`pip install -I https://github.com/dronekit/dronekit-python/archive/v1.5.0.tar.gz`
+
+
 Matthew Reimer, 2015
