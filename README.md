@@ -1,6 +1,6 @@
 AutonomousGrainCart
 ===================
-*Software for interacting with an autonomous tractor that has been setup with [Pixhawk](https://pixhawk.org) harware.*
+*Software for interacting with an autonomous tractor that has been setup with [Pixhawk](https://pixhawk.org) hardware.*
 
 Run this code as a module in mavproxy, see the following links for more info.
 
