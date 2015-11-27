@@ -56,9 +56,11 @@ cmds = v.commands
 
 # offsets for cart relative to combine in meters
 sendcart_event = pygame.USEREVENT + 1
-# sendcartTimer still in use for guide right and for calculating distances but not for active guidance
-# when unloading see use of threading in startUnloading
+
+# sendcartTimer is still used for guide right and calculating distances,
+# but not for active guidance when unloading see use of threading in startUnloading
 sendcartTimer = 750  # time in milliseconds before sending new coordinate
+
 offsetAhead = 18.0
 offsetLeft = 9.5
 altitude = 30  # in meters
@@ -185,8 +187,8 @@ def getGpsLoc():
     # Use the python gps package to access the laptop GPS
     try:
         gpsd = gps.gps(mode=gps.WATCH_ENABLE)
-        # Once we have a valid location (see GPSd documentation) we can start moving our vehicle around
-        # This is necessary to read the GPS state from the laptop
+        # Once we have a valid location (see GPSd documentation) we can start moving our vehicle around.
+        # This is necessary to read the GPS state from the laptop.
         gpsd.next()
         gotgps = True
         while gotgps:
@@ -237,9 +239,9 @@ def goToApproach():
 
 
 def cartUnldLoc(distLeft, distAhead, combineLoc):
-    # returns lat lon that is dist left and dist ahead of combine location.
-    # if dist left or dist ahead is negative the offset will be behind
-    # combineLoc is a list with 4 elements in the same form that getGpsLoc returns
+    # Returns lat and lon that is the distance left and distance ahead of combine location.
+    # If the dist left or dist ahead is negative the offset will be behind.
+    # combineLoc is a list with 4 elements in the same form that getGpsLoc returns.
     # angle between headingLeft and hypotenuse line formed by the triangle
     # created with distLeft + distAhead
     theta = math.degrees(math.atan(float(distAhead) / float(distLeft)))
@@ -257,8 +259,8 @@ def cartUnldLoc(distLeft, distAhead, combineLoc):
     h = math.sqrt(distLeft * distLeft + distAhead * distAhead)
     deltaLat = math.cos(alpha) * h
     deltaLon = math.sin(alpha) * h
-    # convert delta lat and delta lon to decimal degrees add to combine
-    # lat lon and return the result
+    # Convert delta lat and delta lon to decimal degrees
+    # Add to combine lat & lon and return the result
     deltaLat /= 111111.0
     deltaLon /= (math.cos(math.radians(combineLoc[0])) * 111111.0)
     lat = combineLoc[0] + deltaLat
@@ -384,7 +386,7 @@ def homeScreen():
                 button("MAX", 830, 1220, 180, 140, green, grey, speedMax)
 
             window.fill(white)
-            # bUTTONS
+
             button("QUICK STOP", 20, 1150, 800, 200, red, grey)
             button("Controlled Stop", 20, 20, 800, 200, yellow, grey)
             button("Start Unloading", 440, 720, 380, 380, green, grey)
@@ -408,7 +410,7 @@ def homeScreen():
 
 def startUnloading():
     global nudge
-    nudge = 15.0  # change this to set distance away from combine cart initially starts
+    nudge = 15.0  # This sets the distance away from the combine cart initially starts
     global nudgeFront
     nudgeFront = 0.0
     global approach
@@ -447,7 +449,7 @@ def startUnloading():
                     if approach[0] != 0:
                         button("Go To Approach", 440, 720, 380, 380, green, grey, goToApproachFromUnload)
             window.fill(white)
-            # buttons
+
             button("QUICK STOP", 20, 1150, 800, 200, red, grey)
             button("Controlled Stop", 20, 20, 800, 200, yellow, grey)
             button("Remote", 830, 20, 180, 140, green, grey)
@@ -485,7 +487,6 @@ def ApproachLoc():
                 button("Controlled Stop", 20, 20, 800, 200, yellow, grey, controlledStop)
                 button("Remote", 830, 20, 180, 140, green, grey, speedReturn)
                 button("SLOW", 830, 170, 180, 140, green, grey, speedSlow)
-                # button("Auto",830,320,180,140,green,grey,auto)
                 button("3km/hr", 830, 470, 180, 140, green, grey, speed3)
                 button("4km/hr", 830, 620, 180, 140, green, grey, speed4)
                 button("5km/hr", 830, 770, 180, 140, green, grey, speed5)
@@ -493,12 +494,11 @@ def ApproachLoc():
                 button("7km/hr", 830, 1070, 180, 140, green, grey, speed7)
                 button("MAX", 830, 1220, 180, 140, green, grey, speedMax)
             window.fill(white)
-            # buttons
+
             button("QUICK STOP", 20, 1150, 800, 200, red, grey)
             button("Controlled Stop", 20, 20, 800, 200, yellow, grey)
             button("Remote", 830, 20, 180, 140, green, grey)
             button("SLOW", 830, 170, 180, 140, green, grey)
-            # button("Auto",830,320,180,140,red,grey)
             button("3km/hr", 830, 470, 180, 140, green, grey)
             button("4km/hr", 830, 620, 180, 140, green, grey)
             button("5km/hr", 830, 770, 180, 140, green, grey)
@@ -538,7 +538,6 @@ def goingToApproach():
                 button("Controlled Stop", 20, 20, 800, 200, yellow, grey, controlledStop)
                 button("Remote", 830, 20, 180, 140, green, grey, speedReturn)
                 button("SLOW", 830, 170, 180, 140, green, grey, speedSlow)
-                # button("Auto",830,320,180,140,green,grey,auto)
                 button("3km/hr", 830, 470, 180, 140, green, grey, speed3)
                 button("4km/hr", 830, 620, 180, 140, green, grey, speed4)
                 button("5km/hr", 830, 770, 180, 140, green, grey, speed5)
@@ -546,12 +545,11 @@ def goingToApproach():
                 button("7km/hr", 830, 1070, 180, 140, green, grey, speed7)
                 button("MAX", 830, 1220, 180, 140, green, grey, speedMax)
             window.fill(white)
-            # buttons
+
             button("QUICK STOP", 20, 1150, 800, 200, red, grey)
             button("Controlled Stop", 20, 20, 800, 200, yellow, grey)
             button("Remote", 830, 20, 180, 140, green, grey)
             button("SLOW", 830, 170, 180, 140, green, grey)
-            # button("Auto",830,320,180,140,red,grey)
             button("3km/hr", 830, 470, 180, 140, green, grey)
             button("4km/hr", 830, 620, 180, 140, green, grey)
             button("5km/hr", 830, 770, 180, 140, green, grey)
@@ -572,8 +570,8 @@ def goToApproachFromUnload():
 def empty():
     global sendCartControl
     sendCartControl = False
-    # this is based off combine position so you push empty button when done
-    # unloading and the cart turns around.
+    # This is based off the combine position, so you push empty when
+    # your done unloading and the cart turns around.
     pygame.time.set_timer(sendcart_event, sendcartTimer)
     combineLoc = getGpsLoc()
     loc = cartUnldLoc(20, -25, combineLoc)
@@ -597,12 +595,9 @@ def empty():
                     controlledStop()
             if event.type == pygame.MOUSEBUTTONDOWN:
                 button("QUICK STOP", 20, 1150, 800, 200, red, grey, emergencyStop)
-                # ~ button("Go",20,280,380,380,greyblue,greyblue,goToApproach)
-                # ~ button("Cancel",440,280,380,380,greyblue,red,homeScreen)
                 button("Controlled Stop", 20, 20, 800, 200, yellow, grey, controlledStop)
                 button("Remote", 830, 20, 180, 140, green, grey, speedReturn)
                 button("SLOW", 830, 170, 180, 140, green, grey, speedSlow)
-                # button("Auto",830,320,180,140,green,grey,auto)
                 button("3km/hr", 830, 470, 180, 140, green, grey, speed3)
                 button("4km/hr", 830, 620, 180, 140, green, grey, speed4)
                 button("5km/hr", 830, 770, 180, 140, green, grey, speed5)
@@ -610,20 +605,17 @@ def empty():
                 button("7km/hr", 830, 1070, 180, 140, green, grey, speed7)
                 button("MAX", 830, 1220, 180, 140, green, grey, speedMax)
             window.fill(white)
-            # buttons
+
             button("QUICK STOP", 20, 1150, 800, 200, red, grey)
             button("Controlled Stop", 20, 20, 800, 200, yellow, grey)
             button("Remote", 830, 20, 180, 140, green, grey)
             button("SLOW", 830, 170, 180, 140, green, grey)
-            # button("Auto",830,320,180,140,red,grey)
             button("3km/hr", 830, 470, 180, 140, green, grey)
             button("4km/hr", 830, 620, 180, 140, green, grey)
             button("5km/hr", 830, 770, 180, 140, green, grey)
             button("6km/hr", 830, 920, 180, 140, green, grey)
             button("7km/hr", 830, 1070, 180, 140, green, grey)
             button("MAX", 830, 1220, 180, 140, green, grey)
-            # ~ button("Go",20,280,380,380,green,grey)
-            # ~ button("Cancel",440,280,380,380,red,grey)
         pygame.display.flip()
         clock.tick(30)
 
