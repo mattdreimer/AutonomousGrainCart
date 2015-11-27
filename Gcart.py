@@ -28,7 +28,7 @@ blue = (0, 0, 255)
 greyblue = (153, 204, 255)
 
 
-##Button Functions
+# Button Functions
 def text_objects(text, font):
     textSurface = font.render(text, True, black)
     return textSurface, textSurface.get_rect()
@@ -39,7 +39,7 @@ def button(msg, x, y, w, h, ic, ac, action=None):
     click = pygame.mouse.get_pressed()
     if x + w > mouse[0] > x and y + h > mouse[1] > y:
         pygame.draw.rect(window, ac, (x, y, w, h))
-        if click[0] == 1 and action != None:
+        if click[0] == 1 and action is not None:
             action()
     else:
         pygame.draw.rect(window, ic, (x, y, w, h))
@@ -121,13 +121,13 @@ nudge = 0.0
 
 def moveLeft():
     global nudge
-    nudge = nudge + 0.5
+    nudge += 0.5
     print "nudge = ", nudge, "\n"
 
 
 def moveRight():
     global nudge
-    nudge = nudge - .5
+    nudge -= .5
     print "nudge = ", nudge, "\n"
 
 
@@ -166,10 +166,10 @@ def turnAround():
 
 
 def distBwPoints(lat1, lon1, lat2, lon2):
-    # returns distance in meters between two points of lat and lon
+    # Returns distance in meters between two points of lat and lon
     # lat and lon need to be in decimal degrees
-    # going to use a,b,c triangle c is hyponteus
-    # theta is the distance in km of one degree of latitude
+    # going to use a,b,c triangle c is hypotenuse
+    # Theta is the distance in km of one degree of latitude
     theta = 111111.0
     a = math.fabs(((lat1 - lat2) * theta))
     # ~ print "a=", a
@@ -185,7 +185,7 @@ def getGpsLoc():
     # Use the python gps package to access the laptop GPS
     try:
         gpsd = gps.gps(mode=gps.WATCH_ENABLE)
-        # Once we have a valid location (see gpsd documentation) we can start moving our vehicle around
+        # Once we have a valid location (see GPSd documentation) we can start moving our vehicle around
         # This is necessary to read the GPS state from the laptop
         gpsd.next()
         gotgps = True
@@ -194,7 +194,7 @@ def getGpsLoc():
             if (gpsd.valid & gps.LATLON_SET) != 0:
                 loc = [gpsd.fix.latitude, gpsd.fix.longitude, gpsd.fix.track, gpsd.fix.speed]
                 return loc
-    except(socket.error):
+    except socket.error:
         print "Error the GPS does not seem to be Connected \n"
         homeScreen()
         # uncomment below return statement to test program and comment out while loop above
@@ -202,7 +202,7 @@ def getGpsLoc():
 
 
 # this function was used to turn guided mode on so map could be used. It is no longer
-# necassary because I have given up on the idea of using the map as it is hard and
+# necessary because I have given up on the idea of using the map as it is hard and
 # imprecise in a moving vehicle.
 def setGuided():
     # ~ combineLoc=getGpsLoc()
@@ -240,12 +240,12 @@ def cartUnldLoc(distLeft, distAhead, combineLoc):
     # returns lat lon that is dist left and dist ahead of combine location.
     # if dist left or dist ahead is negative the offset will be behind
     # combineLoc is a list with 4 elements in the same form that getGpsLoc returns
-    # angle between headingLeft and hyptoneus line formed by the triangle
+    # angle between headingLeft and hypotenuse line formed by the triangle
     # created with distLeft + distAhead
     theta = math.degrees(math.atan(float(distAhead) / float(distLeft)))
-    # alpha is the angle between 0(north) and the hyptoneus line
+    # alpha is the angle between 0(north) and the hypotenuse line
     # (if you drew a line between combineloc and projected point)
-    alpha = -1
+
     if (combineLoc[2] - 90 + theta) < 0:
         alpha = math.radians(combineLoc[2] + 270 + theta)
         # ~ print "if statement"
@@ -253,14 +253,14 @@ def cartUnldLoc(distLeft, distAhead, combineLoc):
         alpha = math.radians(combineLoc[2] - 90 + theta)
         # ~ print "else statement"
         # delta lat and delta lon equals the sine and cosine of alpha multiplied
-        # by hypotenues length (h)
+        # by hypotenuse length (h)
     h = math.sqrt(distLeft * distLeft + distAhead * distAhead)
     deltaLat = math.cos(alpha) * h
     deltaLon = math.sin(alpha) * h
     # convert delta lat and delta lon to decimal degrees add to combine
     # lat lon and return the result
-    deltaLat = deltaLat / 111111.0
-    deltaLon = deltaLon / (math.cos(math.radians(combineLoc[0])) * 111111.0)
+    deltaLat /= 111111.0
+    deltaLon /= (math.cos(math.radians(combineLoc[0])) * 111111.0)
     lat = combineLoc[0] + deltaLat
     lon = combineLoc[1] + deltaLon
     loc = [lat, lon]
@@ -317,23 +317,25 @@ def sendCart():
             combineLoc = getGpsLoc()
             loc = cartUnldLoc(offsetLeft + nudge, offsetAhead + nudgeFront, combineLoc)
             # put vehicle in guided mode and avoid doing it over and over
-            if modeSet == False:
+            if modeSet is False:
                 while v.mode.name != "GUIDED":
                     v.mode = VehicleMode("GUIDED")
                     v.flush()
                     if v.mode.name == "GUIDED":
                         print "Tractor is in gear! \n"
                         modeSet = True
-            if modeSet == True:
-                # check distance b/w cart and combine if distance is below some threshold execute turn cart around only do this once
-                if turnSet == False:
+            if modeSet is True:
+                # check distance between cart and combine
+                # if distance is below some threshold execute cart turn around
+                # only do this once
+                if turnSet is False:
                     cartLoc = v.location
                     distance = distBwPoints(loc[0], loc[1], cartLoc.lat, cartLoc.lon)
                     if 25.0 > distance:
                         print "Turning Cart Around \n"
                         turnAround()
                         turnSet = True
-                if turnSet == True and forwardSet == False:
+                if turnSet is True and forwardSet is False:
                     cartLoc = v.location
                     distance = distBwPoints(combineLoc[0], combineLoc[1], cartLoc.lat, cartLoc.lon)
                     if 21.0 > distance:
@@ -360,10 +362,10 @@ def homeScreen():
     while gameloop:
         for event in pygame.event.get():
             # ~ print event
-            if (event.type == pygame.QUIT):
+            if event.type == pygame.QUIT:
                 pygame.quit()
                 quit()
-            if (event.type == pygame.MOUSEBUTTONDOWN):
+            if event.type == pygame.MOUSEBUTTONDOWN:
                 button("QUICK STOP", 20, 1150, 800, 200, red, grey, emergencyStop)
                 button("Controlled Stop", 20, 20, 800, 200, yellow, grey, controlledStop)
                 button("Start Unloading", 440, 720, 380, 380, green, grey, startUnloading)
@@ -382,7 +384,7 @@ def homeScreen():
                 button("MAX", 830, 1220, 180, 140, green, grey, speedMax)
 
             window.fill(white)
-            ##BUTTONS
+            # bUTTONS
             button("QUICK STOP", 20, 1150, 800, 200, red, grey)
             button("Controlled Stop", 20, 20, 800, 200, yellow, grey)
             button("Start Unloading", 440, 720, 380, 380, green, grey)
@@ -423,10 +425,10 @@ def startUnloading():
     control = True
     while control:
         for event in pygame.event.get():
-            if (event.type == pygame.QUIT):
+            if event.type == pygame.QUIT:
                 pygame.quit()
                 quit()
-            if (event.type == pygame.MOUSEBUTTONDOWN):
+            if event.type == pygame.MOUSEBUTTONDOWN:
                 button("QUICK STOP", 20, 1150, 800, 200, red, grey, emergencyStop)
                 button("Move Left", 20, 280, 380, 380, greyblue, grey, moveLeft)
                 button("Move Right", 440, 280, 380, 380, greyblue, grey, moveRight)
@@ -440,7 +442,7 @@ def startUnloading():
                 button("6km/hr", 830, 920, 180, 140, green, grey, speed6)
                 button("7km/hr", 830, 1070, 180, 140, green, grey, speed7)
                 button("MAX", 830, 1220, 180, 140, green, grey, speedMax)
-                if turnSet == True:
+                if turnSet is True:
                     button("Empty", 20, 720, 380, 380, lightblue, grey, empty)
                     if approach[0] != 0:
                         button("Go To Approach", 440, 720, 380, 380, green, grey, goToApproachFromUnload)
@@ -459,7 +461,7 @@ def startUnloading():
             button("MAX", 830, 1220, 180, 140, green, grey)
             button("Move Left", 20, 280, 380, 380, greyblue, grey)
             button("Move Right", 440, 280, 380, 380, greyblue, grey)
-            if turnSet == True:
+            if turnSet is True:
                 button("Empty", 20, 720, 380, 380, lightblue, grey)
                 if approach[0] != 0:
                     button("Go To Approach", 440, 720, 380, 380, green, grey)
@@ -473,10 +475,10 @@ def ApproachLoc():
     control = True
     while control:
         for event in pygame.event.get():
-            if (event.type == pygame.QUIT):
+            if event.type == pygame.QUIT:
                 pygame.quit()
                 quit()
-            if (event.type == pygame.MOUSEBUTTONDOWN):
+            if event.type == pygame.MOUSEBUTTONDOWN:
                 button("QUICK STOP", 20, 1150, 800, 200, red, grey, emergencyStop)
                 button("Set Here", 20, 280, 380, 380, greyblue, greyblue, setApproachLoc)
                 button("Cancel", 440, 280, 380, 380, greyblue, red, homeScreen)
@@ -517,10 +519,10 @@ def goingToApproach():
     control = True
     while control:
         for event in pygame.event.get():
-            if (event.type == pygame.QUIT):
+            if event.type == pygame.QUIT:
                 pygame.quit()
                 quit()
-            if (event.type == sendcart_event):
+            if event.type == sendcart_event:
                 cartLoc = v.location
                 distToApproach = distBwPoints(approach[0], approach[1], cartLoc.lat, cartLoc.lon)
                 print "Distance to approach is ", distToApproach, "m \n"
@@ -529,7 +531,7 @@ def goingToApproach():
                 if 10 > distToApproach:
                     print "Approach is being reached, stopping now! \n"
                     controlledStop()
-            if (event.type == pygame.MOUSEBUTTONDOWN):
+            if event.type == pygame.MOUSEBUTTONDOWN:
                 button("QUICK STOP", 20, 1150, 800, 200, red, grey, emergencyStop)
                 button("Go", 20, 280, 380, 380, greyblue, greyblue, goToApproach)
                 button("Cancel", 440, 280, 380, 380, greyblue, red, homeScreen)
@@ -581,10 +583,10 @@ def empty():
     control = True
     while control:
         for event in pygame.event.get():
-            if (event.type == pygame.QUIT):
+            if event.type == pygame.QUIT:
                 pygame.quit()
                 quit()
-            if (event.type == sendcart_event):
+            if event.type == sendcart_event:
                 cartLoc = v.location
                 distToReady = distBwPoints(loc[0], loc[1], cartLoc.lat, cartLoc.lon)
                 print "Distance to Ready location is ", distToReady, "m \n"
@@ -593,7 +595,7 @@ def empty():
                 if 10 > distToReady:
                     print "Ready location is being reached, stopping now! \n"
                     controlledStop()
-            if (event.type == pygame.MOUSEBUTTONDOWN):
+            if event.type == pygame.MOUSEBUTTONDOWN:
                 button("QUICK STOP", 20, 1150, 800, 200, red, grey, emergencyStop)
                 # ~ button("Go",20,280,380,380,greyblue,greyblue,goToApproach)
                 # ~ button("Cancel",440,280,380,380,greyblue,red,homeScreen)
@@ -630,42 +632,39 @@ def guideRight():
     global nudge
     nudge = 39.0  # change this to set distance away from combine cart initially starts
     global nudgeFront
-    # negative number is unsatisfying solution to get cart on left. I reverse combine
-    # heading as well below.
+    # negative number is unsatisfying solution to get cart on left.
+    # I reverse combine heading as well below.
     nudgeFront = -40.0
     global approach
-    # starts the grain cart moving to gps coordinates for unloading
+    # starts the grain cart moving to GPS coordinates for unloading
     pygame.time.set_timer(sendcart_event, sendcartTimer)
     modeSet = False
-    turnSet = False
-    forwardSet = False
     control = True
+
     while control:
         for event in pygame.event.get():
-            if (event.type == pygame.QUIT):
+            if event.type == pygame.QUIT:
                 pygame.quit()
                 quit()
-            if (event.type == sendcart_event):
+            if event.type == sendcart_event:
                 combineLoc = getGpsLoc()
                 # Reversing heading here
-                combineLoc[2] = combineLoc[2] + 180.0
-                loc = cartUnldLoc(offsetLeft + nudge, offsetAhead + nudgeFront, combineLoc)
+                combineLoc[2] += 180.0
                 # put vehicle in guided mode and avoid doing it over and over
-                if modeSet == False:
+                if modeSet is False:
                     while v.mode.name != "GUIDED":
                         v.mode = VehicleMode("GUIDED")
                         v.flush()
                         if v.mode.name == "GUIDED":
                             print "Tractor is in gear! \n"
                             modeSet = True
-                if modeSet == True:
-                    cartLoc = v.location
+                if modeSet is True:
                     loc = cartUnldLoc(offsetLeft + nudge, offsetAhead + nudgeFront, combineLoc)
                     cartGoalLoc = Location(loc[0], loc[1], altitude, is_relative=True)
                     cmds.goto(cartGoalLoc)
                     v.flush()
                     # ~ print "Sending Cart to ", cartLoc
-            if (event.type == pygame.MOUSEBUTTONDOWN):
+            if event.type == pygame.MOUSEBUTTONDOWN:
                 button("QUICK STOP", 20, 1150, 800, 200, red, grey, emergencyStop)
                 button("Move Left", 20, 280, 380, 380, greyblue, grey, moveLeft)
                 button("Move Right", 440, 280, 380, 380, greyblue, grey, moveRight)
