@@ -1,696 +1,440 @@
-#########################
-# Autonomous Grain Cart #
-#########################
-
-import pygame
+from Tkinter import *
+import ttk
+from ttk import *
+import sys
+import Tkinter
+from dronekit import connect, VehicleMode, LocationGlobal
+import time
+import threading
 import gps
 import socket
-import time
 import math
-from droneapi.lib import VehicleMode, Location
-import threading
-
-pygame.init()
-window = pygame.display.set_mode((1030, 1400))
-pygame.display.set_caption("Grain Cart Control")
-clock = pygame.time.Clock()
-
-# Colours
-white = (255, 255, 255)
-red = (200, 0, 0)
-yellow = (255, 255, 0)
-green = (0, 255, 0)
-lightblue = (0, 255, 255)
-grey = (160, 160, 160)
-black = (0, 0, 0)
-purple = (204, 0, 204)
-blue = (0, 0, 255)
-greyblue = (153, 204, 255)
 
 
-# Button Functions
-def text_objects(text, font):
-    textSurface = font.render(text, True, black)
-    return textSurface, textSurface.get_rect()
+root = Tk()
+root.title("GcartLayout")
+root.attributes('-zoomed', True)
+
+# Create the frames for layout
+frameTuple=("terminal", "topInfo", "tracHealth", "buttons", "lowerInfo", "speedSel")
+for x in frameTuple:
+	globals()[x] = ttk.Frame(root, relief="groove", padding="3")
+	globals()[x].grid_propagate(False)
+	globals()[x].grid(sticky=(N,E,S,W))
+	
+# Place the frames in root
+terminal.grid(column=6, columnspan= 4, row=2, rowspan=4)
+topInfo.grid(column=0, columnspan= 6, row=0)
+tracHealth.grid(column=6, columnspan= 4, row=0, rowspan=2)
+buttons.grid(column=0, columnspan= 6, row=1, rowspan=4)
+lowerInfo.grid(column=0, columnspan= 6, row=5)
+speedSel.grid(column=0, columnspan= 10, row=7)
+
+# Configure relative size of frames by changing column weights of root
+for x in range(10):
+	root.columnconfigure(x, weight=10)
+for x in (1,2,3,4,7):
+	root.rowconfigure(x, weight=10)
+root.rowconfigure(0, weight=5)
+root.rowconfigure(5, weight=6)
+#~ root.rowconfigure(6, weight=2)
+
+###topInfoFrame###
+
+#Should have GpsStatus, Radio Link status and strength (see mavproxy console),
+#and Arm status of pixhawk (see mavproxy console)
+#leave some space for more information to be displayed
+
+###End of topInfo Frame####
+
+###tractorHealthFrame###
+
+#should have temp, oil, feul, and rpm of tractor displayed
+#should watch with a callback some mavlink message
+#mavlink message has not yet been implemented
+
+###End of tracHealthFrame###
 
 
-def button(msg, x, y, w, h, ic, ac, action=None):
-    mouse = pygame.mouse.get_pos()
-    click = pygame.mouse.get_pressed()
-    if x + w > mouse[0] > x and y + h > mouse[1] > y:
-        pygame.draw.rect(window, ac, (x, y, w, h))
-        if click[0] == 1 and action is not None:
-            action()
-    else:
-        pygame.draw.rect(window, ic, (x, y, w, h))
+###Terminal Frame###	
+text = Tkinter.Text(terminal)
+text.grid(column=0, row=0, sticky=(N,E,S,W))
+terminal.columnconfigure(0, weight=1)
+terminal.rowconfigure(0, weight=1)
 
-    smallText = pygame.font.Font("freesansbold.ttf", 30)
-    textSurf, textRect = text_objects(msg, smallText)
-    textRect.center = ((x + (w / 2)), (y + (h / 2)))
-    window.blit(textSurf, textRect)
+class Std_redirector(object):
+	def __init__(self,widget):
+		self.widget = widget
+		
+	def write(self,string):
+		self.widget.insert(Tkinter.END,string)
+		self.widget.see(Tkinter.END)
+			
+sys.stdout = Std_redirector(text)
+###End of Terminal Frame###
 
+#Use this line for connecting with 3dr radio
+v = connect("/dev/ttyUSB0", baud=57600 , wait_ready=True)
+#use this line for connecting to simulation
+#~ v = connect("127.0.0.1:14550", wait_ready=True)
+print "Connected to Tractor \nReady to Go!!!"
 
-api = local_connect()
-v = api.get_vehicles()[0]
-cmds = v.commands
+###Tractor Health frame###
+#Still need to set up labels with callbacks for temp, oil, fuel, and rpm
+ttk.Label(tracHealth, text="Tractor Health", anchor="center", font=("",24,"")).grid(column=0, row=0, columnspan=4)
+for x in range(4):
+	tracHealth.columnconfigure(x, weight=1)
+for x in range(2):
+	tracHealth.rowconfigure(x, weight=1)
+###End of Tractor Health frame###
 
-# offsets for cart relative to combine in meters
-sendcart_event = pygame.USEREVENT + 1
+###SpeedSelFrame####
+def setTargetSpeed(scaleVal):
+	#Updates target speed as slider is moved
+	targetSpeed.set((str(round(float(scaleVal), 1)), "MPH"))
 
-# sendcartTimer is still used for guide right and calculating distances,
-# but not for active guidance when unloading see use of threading in startUnloading
-sendcartTimer = 750  # time in milliseconds before sending new coordinate
+def setSpeed(requestSpeed):
+	#Function for changing speed. requestSpeed is a number (0-whatever
+	#the top speed is set for) default is 8mph
+	speedScaleVal.set(requestSpeed)
+	setTargetSpeed(requestSpeed)
+	if requestSpeed==0:
+		rc8Val=1000
+	else:
+		#needs to calibrated to the tractor ie make a table of rc8values
+		#for each speed ex 1mph=1200 2mph=1350 ect.. look up the values from 
+		#the table or interpolate if it is between two values 
+		#or more interesting is to write a script to automate the process.
+		rc8Val=int(requestSpeed/8.0*1000+1000)
+		if rc8Val>2000:
+			rc8Val=2000
+		elif rc8Val<1000:
+			rc8Val=1000
+	
+	v.channels.overrides = {8:rc8Val}
+	v.flush()
+	print "sent servo 8 to ", rc8Val
 
-offsetAhead = 18.0
-offsetLeft = 9.5
-altitude = 30  # in meters
+def setSpeedonRelease(instanceVar):
+	setSpeed(speedScaleVal.get())
+		
+speedStyle = ttk.Style()
+speedStyle.configure("Speed.Horizontal.TScale", 
+	sliderthickness="full", 
+	sliderlength=150, 
+	background="orange")	
+speedStyle.map("Speed.Horizontal.TScale",
+	background=[("pressed", "orange"),
+				("active", "orange")])
+					
+speedScaleVal = DoubleVar()
+speedScale = ttk.Scale(speedSel, 
+	orient=HORIZONTAL, 
+	from_=0.0, 
+	to=8.0, 
+	variable= speedScaleVal, 
+	style="Speed.Horizontal.TScale", 
+	command=setTargetSpeed)
+speedScale.bind("<ButtonRelease-1>", setSpeedonRelease)
+speedScale.grid(column=0, row=0, sticky=(N,E,S,W))
+speedSel.columnconfigure(0, weight=1)
+speedSel.rowconfigure(0, weight=1)
 
+ttk.Label(root, 
+	text="Speed Control", 
+	anchor="center",
+	font=("",18,"")
+	).grid(column=0, 
+		columnspan=10, 
+		row=6, 
+		sticky=(S,E,W))
 
-def setSpeed(a):
-    # function for controlling rc8 hooked to speed control lever
-    v.channel_override = {8: a}
-    v.flush()
-
-
-# ~ print "sent servo 8 to ", a
-def speedReturn():
-    setSpeed(0)
-    print "Control Returned to Remote"
-
-
-def speedSlow():
-    setSpeed(1000)
-    print "set speed to slow \n"
-
-
-def speed2():
-    setSpeed(1202)
-    print "set speed to 2km/hr \n"
-
-
-def speed3():
-    setSpeed(1283)
-    print "set speed to 3km/hr \n"
-
-
-def speed4():
-    setSpeed(1358)
-    print "set speed to 4km/hr \n"
-
-
-def speed5():
-    setSpeed(1489)
-    print "set speed to 5km/hr \n"
-
-
-def speed6():
-    setSpeed(1570)
-    print "set speed to 6km/hr \n"
-
-
-def speed7():
-    setSpeed(1704)
-    print "set speed to 7km/hr \n"
-
-
-def speedMax():
-    setSpeed(2000)
-    print "set speed max \n"
-
-
-nudge = 0.0
-
-
-def moveLeft():
-    global nudge
-    nudge += 0.5
-    print "nudge = ", nudge, "\n"
-
-
-def moveRight():
-    global nudge
-    nudge -= .5
-    print "nudge = ", nudge, "\n"
-
-
-nudgeFront = 0.0
-
-
-def setPointForward():
-    global nudgeFront
-    nudgeFront = 15.0
-    print "Set point ahead ", nudgeFront, "(m) \n"
-
-
-def setPointForwardZero():
-    global nudgeFront
-    nudgeFront = 0.0
-    print "Set ahead distance back to normal ", nudgeFront, "(m) \n"
+ttk.Label(root, 
+	text="Slow", 
+	anchor="center",
+	font=("",18,"")
+	).grid(column=0, 
+		row=6, 
+		sticky=(S,E,W))
+		
+ttk.Label(root, 
+	text="Fast", 
+	anchor="center",
+	font=("",18,"")
+	).grid(column=9, 
+		row=6, 
+		sticky=(S,E,W))
+###End of SpeedSelFrame####
 
 
-def bringItClose():
-    global nudge
-    nudge = 0.0
-    setPointForwardZero()
-    print "CART IS COMING CLOSE!"
-    print "CART IS COMING CLOSE!"
-    print "CART IS COMING CLOSE!"
-    print "nudge = ", nudge, "\n"
+###Start of lowerInfoFrame###
+###In Gear watcher###
+def mode_callback(self, attr_name, value):
+	if str(value) == "VehicleMode:HOLD":
+		inGearLabel.configure(background="green")
+		inGearStatus.set("Tractor is Parked")
+	else:
+		inGearLabel.configure(background="red")
+		inGearStatus.set("Tractor is in Gear")
+			
+v.add_attribute_listener("mode", mode_callback)
+
+inGearStatus = StringVar()
+inGearLabel = ttk.Label(lowerInfo, textvariable=inGearStatus, anchor="center",font=("",24,""))
+inGearLabel.grid(column=0, row=0, sticky=(N,E,S,W))
+
+mode_callback(v,"mode",v.mode)
+
+for x in range(3):
+	lowerInfo.columnconfigure(x, weight=1)
+lowerInfo.rowconfigure(0, weight=1)
+###End of in Gear watcher###
+
+###Speed watcher###
+def speed_callback(self, attr_name, value):
+	speedStatus.set((round(value*2.23694, 1), 'MPH'))
+			
+v.add_attribute_listener("groundspeed", speed_callback)
+
+speedStatus = StringVar()
+speedLabel = ttk.Label(lowerInfo, textvariable=speedStatus, anchor="center",font=("",24,""))
+ttk.Label(lowerInfo, text="GPS Speed", anchor="center",font=("",24,"")).grid(column=1, row=0, sticky=(N,E,W))
+speedLabel.grid(column=1, row=0, sticky=(S,E,W))
+###End of Speed watcher###
+
+###Target Speed Display###
+targetSpeed = StringVar()
+targetSpeedLabel = ttk.Label(lowerInfo, 
+	textvariable=targetSpeed, 
+	anchor="center",
+	font=("",24,""))
+ttk.Label(lowerInfo, 
+	text="Target Speed", 
+	anchor="center",
+	font=("",24,"")).grid(
+	column=2, 
+	row=0, 
+	sticky=(N,E,W))
+targetSpeedLabel.grid(column=2, row=0, sticky=(S,E,W))
+###End of Target Speed Display###
+###End of lowerInfoFrame####=
 
 
-def turnAround():
-    global nudge
-    print "CART IS TURNING AROUND!"
-    print "CART IS MOVING CLOSER! \n"
-    speed4()
-    nudge = 0.0  # this should ensure cart always turns to the right
-    setPointForward()
-
-
-def distBwPoints(lat1, lon1, lat2, lon2):
-    # Returns distance in meters between two points of lat and lon
-    # lat and lon need to be in decimal degrees
-    # going to use a,b,c triangle c is hypotenuse
-    # Theta is the distance in km of one degree of latitude
-    theta = 111111.0
-    a = math.fabs(((lat1 - lat2) * theta))
-    # ~ print "a=", a
-    b = math.fabs((lon1 - lon2)) * math.cos(math.radians(math.fabs(lat1))) * theta
-    # ~ print "b=",b
-    c = math.sqrt(a * a + b * b)
-    # ~ print "c=",c
-    return c
-
+###Start of Buttons###
+offsetAhead=18.0
+offsetLeft=9.5
+def distBwPoints(lat1,lon1,lat2,lon2):
+	#returns distance in meters between two points of lat and lon
+	#lat and lon need to be in decimal degrees
+	#going to use a,b,c triangle c is hyponteus
+	#theta is the distance in km of one degree of latitude
+	theta=111111.0
+	a=math.fabs(((lat1-lat2)*theta))
+	#~ print "a=", a
+	b=math.fabs((lon1-lon2))*math.cos(math.radians(math.fabs(lat1)))*theta
+	#~ print "b=",b
+	c=math.sqrt(a*a+b*b)
+	#~ print "c=",c
+	return c
 
 def getGpsLoc():
-    # returns list of lat,lon,track,speed
-    # Use the python gps package to access the laptop GPS
-    try:
-        gpsd = gps.gps(mode=gps.WATCH_ENABLE)
-        # Once we have a valid location (see GPSd documentation) we can start moving our vehicle around.
-        # This is necessary to read the GPS state from the laptop.
-        gpsd.next()
-        gotgps = True
-        while gotgps:
-            gpsd.next()
-            if (gpsd.valid & gps.LATLON_SET) != 0:
-                loc = [gpsd.fix.latitude, gpsd.fix.longitude, gpsd.fix.track, gpsd.fix.speed]
-                return loc
-    except socket.error:
-        print "Error the GPS does not seem to be Connected \n"
-        homeScreen()
-        # uncomment below return statement to test program and comment out while loop above
-        # ~ return [49.0,-99.0,270,0]
+	#returns list of lat,lon,track,speed
+	# Use the python gps package to access the laptop GPS
+	try:
+		gpsd = gps.gps(mode=gps.WATCH_ENABLE)
+		# Once we have a valid location (see gpsd documentation) we can start moving our vehicle around
+		# This is necessary to read the GPS state from the laptop
+		gpsd.next()
+		gotgps=True
+		while gotgps:
+			gpsd.next()
+			if (gpsd.valid & gps.LATLON_SET) != 0:
+				loc = [gpsd.fix.latitude, gpsd.fix.longitude, gpsd.fix.track,gpsd.fix.speed]
+				return loc
+	except socket.error:
+		print "Error the GPS does not seem to be Connected \n"
+	#uncomment below return statement to test program and comment out while loop above
+	#~ return [49.0,-99.0,270,0]
 
+def cartUnldLoc(distLeft,distAhead,combineLoc):
+	#returns lat lon that is dist left and dist ahead of combine location.
+	#if dist left or dist ahead is negative the offset will be behind
+	#combineLoc is a list with 4 elements in the same form that getGpsLoc returns
+	#angle between headingLeft and hyptoneus line formed by the triangle 
+	#created with distLeft + distAhead
+	theta=math.degrees(math.atan(float(distAhead)/float(distLeft)))
+	#alpha is the angle between 0(north) and the hyptoneus line 
+	#(if you drew a line between combineloc and projected point)
+	alpha=-1
+	if (combineLoc[2]-90+theta)<0:
+		alpha=math.radians(combineLoc[2]+270+theta)
+		#~ print "if statement"
+	else:
+		alpha=math.radians(combineLoc[2]-90+theta)
+		#~ print "else statement"
+	#delta lat and delta lon equals the sine and cosine of alpha multiplied 
+	#by hypotenues length (h)
+	h=math.sqrt(distLeft*distLeft+distAhead*distAhead)
+	deltaLat=math.cos(alpha)*h
+	deltaLon=math.sin(alpha)*h
+	#convert delta lat and delta lon to decimal degrees add to combine
+	#lat lon and return the result
+	deltaLat=deltaLat/111111.0
+	deltaLon=deltaLon/(math.cos(math.radians(combineLoc[0]))*111111.0)
+	lat=combineLoc[0]+deltaLat
+	lon=combineLoc[1]+deltaLon
+	loc=[lat,lon]
+	return loc
 
-# this function was used to turn guided mode on so map could be used. It is no longer
-# necessary because I have given up on the idea of using the map as it is hard and
-# imprecise in a moving vehicle.
-def setGuided():
-    # ~ combineLoc=getGpsLoc()
-    # ~ cartLoc=v.location
-    # ~ print "combine location is", combineLoc
-    # ~ print "cart location is",v.location
-    while v.mode.name != "GUIDED":
-        v.mode = VehicleMode("GUIDED")
-        v.flush()
-        time.sleep(1)
+nudge=0.0
+nudgeFront=0.0
+def setPointForward():
+	global nudgeFront
+	nudgeFront=15.0
+	print "Set point ahead ",nudgeFront,"(m) \n"
 
+def turnAround():
+	global nudge
+	print "CART IS TURNING AROUND!"
+	print "CART IS MOVING CLOSER! \n"
+	setSpeed(3.0)
+	nudge=0.0 #this should ensure cart always turns to the right
+	setPointForward()
+	
+sendCartControl = threading.Event()
+sendCartStatus = False
 
-approach = [0, 0, 0, 0]
+turnSet=False
+forwardSet=False
 
-
-def setApproachLoc():
-    global approach
-    approach = getGpsLoc()
-    print "Approach set to here"
-    print "GPS coordinates are ", approach[0], " ", approach[1]
-    print "ARE YOU SURE THIS IS A SAFE SPOT?????!!!!! \n"
-    homeScreen()
-
-
-def goToApproach():
-    global approach
-    setGuided()
-    cartLoc = Location(approach[0], approach[1], altitude, is_relative=True)
-    cmds.goto(cartLoc)
-    v.flush()
-    print "Sending Cart to Approach \n", cartLoc
-
-
-def cartUnldLoc(distLeft, distAhead, combineLoc):
-    # Returns lat and lon that is the distance left and distance ahead of combine location.
-    # If the dist left or dist ahead is negative the offset will be behind.
-    # combineLoc is a list with 4 elements in the same form that getGpsLoc returns.
-    # angle between headingLeft and hypotenuse line formed by the triangle
-    # created with distLeft + distAhead
-    theta = math.degrees(math.atan(float(distAhead) / float(distLeft)))
-    # alpha is the angle between 0(north) and the hypotenuse line
-    # (if you drew a line between combineloc and projected point)
-
-    if (combineLoc[2] - 90 + theta) < 0:
-        alpha = math.radians(combineLoc[2] + 270 + theta)
-        # ~ print "if statement"
-    else:
-        alpha = math.radians(combineLoc[2] - 90 + theta)
-        # ~ print "else statement"
-        # delta lat and delta lon equals the sine and cosine of alpha multiplied
-        # by hypotenuse length (h)
-    h = math.sqrt(distLeft * distLeft + distAhead * distAhead)
-    deltaLat = math.cos(alpha) * h
-    deltaLon = math.sin(alpha) * h
-    # Convert delta lat and delta lon to decimal degrees
-    # Add to combine lat & lon and return the result
-    deltaLat /= 111111.0
-    deltaLon /= (math.cos(math.radians(combineLoc[0])) * 111111.0)
-    lat = combineLoc[0] + deltaLat
-    lon = combineLoc[1] + deltaLon
-    loc = [lat, lon]
-    return loc
-
-
-def emergencyStop():
-    print "EMERGENCY STOP ACTIVATED \n"
-    sendcartTimer = 0
-    pygame.time.set_timer(sendcart_event, sendcartTimer)
-    while v.mode.name != "HOLD":
-        v.mode = VehicleMode("HOLD")
-        v.flush()
-        time.sleep(1)
-        if v.mode.name != "HOLD":
-            print "Vehicle was not stopped!"
-            print "Trying Again! \n"
-    print "Vehicle Stopped \n"
-    speedSlow()
-    homeScreen()
-
-
-def controlledStop():
-    # stops the cart gently
-    print "Stopping Slowly \n"
-    sendcartTimer = 0
-    pygame.time.set_timer(sendcart_event, sendcartTimer)
-    while v.mode.name != "HOLD":
-        speedSlow()
-        time.sleep(1)
-        v.mode = VehicleMode("HOLD")
-        v.flush()
-        time.sleep(1)
-        if v.mode.name != "HOLD":
-            print "Vehicle was not stopped!"
-            print "Trying Again! \n"
-    print "Vehicle Stopped \n"
-    homeScreen()
-
-
-modeSet = False
-turnSet = False
-forwardSet = False
-sendCartControl = False
-
-
-def sendCart():
-    global modeSet
-    global turnSet
-    global forwardSet
-    global sendCartControl
-    while True:
-        while sendCartControl:
-            combineLoc = getGpsLoc()
-            loc = cartUnldLoc(offsetLeft + nudge, offsetAhead + nudgeFront, combineLoc)
-            # put vehicle in guided mode and avoid doing it over and over
-            if modeSet is False:
-                while v.mode.name != "GUIDED":
-                    v.mode = VehicleMode("GUIDED")
-                    v.flush()
-                    if v.mode.name == "GUIDED":
-                        print "Tractor is in gear! \n"
-                        modeSet = True
-            if modeSet is True:
-                # check distance between cart and combine
-                # if distance is below some threshold execute cart turn around
-                # only do this once
-                if turnSet is False:
-                    cartLoc = v.location
-                    distance = distBwPoints(loc[0], loc[1], cartLoc.lat, cartLoc.lon)
-                    if 25.0 > distance:
-                        print "Turning Cart Around \n"
-                        turnAround()
-                        turnSet = True
-                if turnSet is True and forwardSet is False:
-                    cartLoc = v.location
-                    distance = distBwPoints(combineLoc[0], combineLoc[1], cartLoc.lat, cartLoc.lon)
-                    if 21.0 > distance:
-                        bringItClose()
-                        forwardSet = True
-                        # ~ print "Distance = ", distance
-                loc = cartUnldLoc(offsetLeft + nudge, offsetAhead + nudgeFront, combineLoc)
-                cartGoalLoc = Location(loc[0], loc[1], altitude, is_relative=True)
-                cmds.goto(cartGoalLoc)
-                v.flush()
-                # ~ print "Sending Cart to ", cartLoc
-
-
-sendCartThread = threading.Thread(target=sendCart)
+def sendCart(sendCartControl):
+	#~ print "sendCartThreadisStarted"
+	global turnSet
+	global forwardSet
+	global sendCartStatus
+	while True:
+		#~ print "sendCartThread is Running"
+		sendCartControl.wait()
+		print "Started sending tractor process"
+		while v.mode.name!="GUIDED":
+			print "got here"
+			v.mode = VehicleMode("GUIDED")
+			time.sleep(1)
+			print v.mode.name
+		print "Tractor is in Gear \nStarting to get gps location of combine"
+		combineLoc=getGpsLoc()
+		print "Got Gps Location"
+		loc=cartUnldLoc(offsetLeft+nudge,offsetAhead+nudgeFront,combineLoc)
+		#check distance b/w cart and combine if distance is below some threshold execute turn cart around only do this once
+		if turnSet==False:
+			cartLoc=v.location.global_frame
+			distance=distBwPoints(loc[0],loc[1],cartLoc.lat,cartLoc.lon)
+			if 25.0>distance:
+				print "Turning Cart Around \n"
+				turnAround()
+				turnSet=True
+		if turnSet==True and forwardSet==False:
+			cartLoc=v.location.global_frame
+			distance=distBwPoints(combineLoc[0],combineLoc[1],cartLoc.lat,cartLoc.lon)
+			if 21.0>distance:
+				bringItClose()
+				forwardSet=True
+		#~ print "Distance = ", distance
+		loc=cartUnldLoc(offsetLeft+nudge,offsetAhead+nudgeFront,combineLoc)
+		cartGoalLoc=LocationGlobal(loc[0],loc[1],0)
+		v.simple_goto(cartGoalLoc)
+		#~ print "Sending Cart to ", cartLoc
+		if sendCartStatus==False:
+			while v.mode.name!="HOLD":
+				v.mode = VehicleMode("HOLD")
+				time.sleep(1)		
+sendCartThread = threading.Thread(target=sendCart, args=(sendCartControl,))
 sendCartThread.start()
 
-
-def homeScreen():
-    global sendCartControl
-    sendCartControl = False
-    # ~ controlledStop() #cart should not move when homeScreen is displayed
-    global approach
-    gameloop = True
-    while gameloop:
-        for event in pygame.event.get():
-            # ~ print event
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                quit()
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                button("QUICK STOP", 20, 1150, 800, 200, red, grey, emergencyStop)
-                button("Controlled Stop", 20, 20, 800, 200, yellow, grey, controlledStop)
-                button("Start Unloading", 440, 720, 380, 380, green, grey, startUnloading)
-                button("Guide Right", 20, 720, 380, 380, lightblue, grey, guideRight)
-                if approach[0] != 0:
-                    button("Go To Approach", 440, 280, 380, 380, purple, grey, goingToApproach)
-                button("Approach is HERE", 20, 280, 380, 380, greyblue, grey, ApproachLoc)
-                button("Remote", 830, 20, 180, 140, green, grey, speedReturn)
-                button("SLOW", 830, 170, 180, 140, green, grey, speedSlow)
-                button("2km/hr", 830, 320, 180, 140, green, grey, speed2)
-                button("3km/hr", 830, 470, 180, 140, green, grey, speed3)
-                button("4km/hr", 830, 620, 180, 140, green, grey, speed4)
-                button("5km/hr", 830, 770, 180, 140, green, grey, speed5)
-                button("6km/hr", 830, 920, 180, 140, green, grey, speed6)
-                button("7km/hr", 830, 1070, 180, 140, green, grey, speed7)
-                button("MAX", 830, 1220, 180, 140, green, grey, speedMax)
-
-            window.fill(white)
-
-            button("QUICK STOP", 20, 1150, 800, 200, red, grey)
-            button("Controlled Stop", 20, 20, 800, 200, yellow, grey)
-            button("Start Unloading", 440, 720, 380, 380, green, grey)
-            button("Guide Right", 20, 720, 380, 380, lightblue, grey)
-            if approach[0] != 0:
-                button("Go To Approach", 440, 280, 380, 380, purple, grey)
-            button("Approach is HERE", 20, 280, 380, 380, greyblue, grey)
-            button("Remote", 830, 20, 180, 140, green, grey)
-            button("SLOW", 830, 170, 180, 140, green, grey)
-            button("2km/hr", 830, 320, 180, 140, green, grey)
-            button("3km/hr", 830, 470, 180, 140, green, grey)
-            button("4km/hr", 830, 620, 180, 140, green, grey)
-            button("5km/hr", 830, 770, 180, 140, green, grey)
-            button("6km/hr", 830, 920, 180, 140, green, grey)
-            button("7km/hr", 830, 1070, 180, 140, green, grey)
-            button("MAX", 830, 1220, 180, 140, green, grey)
-
-        pygame.display.flip()
-        clock.tick(15)
-
-
+def stop():
+	setSpeed(0)
+	global sendCartControl
+	global sendCartStatus
+	sendCartControl.clear()
+	sendCartStatus=False
+	startUnloadingButton.grid()
+	v.mode = VehicleMode("HOLD")
+	
+def print_mode():
+	pass
+		
 def startUnloading():
-    global nudge
-    nudge = 15.0  # This sets the distance away from the combine cart initially starts
-    global nudgeFront
-    nudgeFront = 0.0
-    global approach
-    # starts the grain cart moving to gps coordinates for unloading
-    # ~ pygame.time.set_timer(sendcart_event,sendcartTimer)
-    global modeSet
-    global turnSet
-    global forwardSet
-    global sendCartControl
-    modeSet = False
-    turnSet = False
-    forwardSet = False
-    sendCartControl = True
-    control = True
-    while control:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                quit()
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                button("QUICK STOP", 20, 1150, 800, 200, red, grey, emergencyStop)
-                button("Move Left", 20, 280, 380, 380, greyblue, grey, moveLeft)
-                button("Move Right", 440, 280, 380, 380, greyblue, grey, moveRight)
-                button("Controlled Stop", 20, 20, 800, 200, yellow, grey, controlledStop)
-                button("Remote", 830, 20, 180, 140, green, grey, speedReturn)
-                button("SLOW", 830, 170, 180, 140, green, grey, speedSlow)
-                button("2km/hr", 830, 320, 180, 140, green, grey, speed2)
-                button("3km/hr", 830, 470, 180, 140, green, grey, speed3)
-                button("4km/hr", 830, 620, 180, 140, green, grey, speed4)
-                button("5km/hr", 830, 770, 180, 140, green, grey, speed5)
-                button("6km/hr", 830, 920, 180, 140, green, grey, speed6)
-                button("7km/hr", 830, 1070, 180, 140, green, grey, speed7)
-                button("MAX", 830, 1220, 180, 140, green, grey, speedMax)
-                if turnSet is True:
-                    button("Empty", 20, 720, 380, 380, lightblue, grey, empty)
-                    if approach[0] != 0:
-                        button("Go To Approach", 440, 720, 380, 380, green, grey, goToApproachFromUnload)
-            window.fill(white)
+	global nudge
+	nudge=15.0 #change this to set distance away from combine cart initially starts
+	global nudgeFront
+	nudgeFront=0.0
+	global turnSet
+	global forwardSet
+	global sendCartControl
+	global sendCartStatus
+	sendCartStatus=True
+	turnSet=False
+	forwardSet=False
+	print v.mode.name
+	sendCartControl.set()
+	startUnloadingButton.grid_remove()
+	print "got there"
 
-            button("QUICK STOP", 20, 1150, 800, 200, red, grey)
-            button("Controlled Stop", 20, 20, 800, 200, yellow, grey)
-            button("Remote", 830, 20, 180, 140, green, grey)
-            button("SLOW", 830, 170, 180, 140, green, grey)
-            button("2km/hr", 830, 320, 180, 140, green, grey)
-            button("3km/hr", 830, 470, 180, 140, green, grey)
-            button("4km/hr", 830, 620, 180, 140, green, grey)
-            button("5km/hr", 830, 770, 180, 140, green, grey)
-            button("6km/hr", 830, 920, 180, 140, green, grey)
-            button("7km/hr", 830, 1070, 180, 140, green, grey)
-            button("MAX", 830, 1220, 180, 140, green, grey)
-            button("Move Left", 20, 280, 380, 380, greyblue, grey)
-            button("Move Right", 440, 280, 380, 380, greyblue, grey)
-            if turnSet is True:
-                button("Empty", 20, 720, 380, 380, lightblue, grey)
-                if approach[0] != 0:
-                    button("Go To Approach", 440, 720, 380, 380, green, grey)
-        pygame.display.flip()
-        clock.tick(15)
+	
+for x in range(3):
+	buttons.columnconfigure(x, weight=1)
+for x in range(2):
+	buttons.rowconfigure(x, weight=1)
+	
+buttonStyle = ttk.Style()
+buttonStyle.configure("Default.TButton",
+	font=("",24,""),
+	anchor="center",
+	justify="center")
+buttonStyle.map("Stop.Default.TButton",
+	background=[("active", "orange")])
+buttonStyle.configure("Stop.Default.TButton",
+	background="orange")
+buttonStyle.map("StartUnloading.Default.TButton",
+	background=[("active", "green")])
+buttonStyle.configure("StartUnloading.Default.TButton",
+	background="green")	
+		
+armDisarmButton=ttk.Button(buttons, 
+	text="Arm", 
+	command= print_mode,
+	style="Default.TButton")
+armDisarmButton.grid(
+	column=1, 
+	row=0, 
+	sticky=(N,E,S,W))	
 
+stopButton=ttk.Button(buttons, 
+	text="Stop", 
+	command= stop,
+	style="Stop.Default.TButton")
+stopButton.grid(
+	column=1, 
+	row=1, 
+	sticky=(N,E,S,W))
 
-def ApproachLoc():
-    global sendCartControl
-    sendCartControl = False
-    control = True
-    while control:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                quit()
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                button("QUICK STOP", 20, 1150, 800, 200, red, grey, emergencyStop)
-                button("Set Here", 20, 280, 380, 380, greyblue, greyblue, setApproachLoc)
-                button("Cancel", 440, 280, 380, 380, greyblue, red, homeScreen)
-                button("Controlled Stop", 20, 20, 800, 200, yellow, grey, controlledStop)
-                button("Remote", 830, 20, 180, 140, green, grey, speedReturn)
-                button("SLOW", 830, 170, 180, 140, green, grey, speedSlow)
-                button("3km/hr", 830, 470, 180, 140, green, grey, speed3)
-                button("4km/hr", 830, 620, 180, 140, green, grey, speed4)
-                button("5km/hr", 830, 770, 180, 140, green, grey, speed5)
-                button("6km/hr", 830, 920, 180, 140, green, grey, speed6)
-                button("7km/hr", 830, 1070, 180, 140, green, grey, speed7)
-                button("MAX", 830, 1220, 180, 140, green, grey, speedMax)
-            window.fill(white)
+startUnloadingButton=ttk.Button(buttons, 
+	text="Start\nUnloading", 
+	command= startUnloading,
+	style="StartUnloading.Default.TButton")
+startUnloadingButton.grid(
+	column=0, 
+	row=1, 
+	sticky=(N,E,S,W))
+	
+guideRightButton=ttk.Button(buttons, 
+	text="Guide Right", 
+	command= print_mode,
+	style="Default.TButton")
+guideRightButton.grid(
+	column=2, 
+	row=1, 
+	sticky=(N,E,S,W))
 
-            button("QUICK STOP", 20, 1150, 800, 200, red, grey)
-            button("Controlled Stop", 20, 20, 800, 200, yellow, grey)
-            button("Remote", 830, 20, 180, 140, green, grey)
-            button("SLOW", 830, 170, 180, 140, green, grey)
-            button("3km/hr", 830, 470, 180, 140, green, grey)
-            button("4km/hr", 830, 620, 180, 140, green, grey)
-            button("5km/hr", 830, 770, 180, 140, green, grey)
-            button("6km/hr", 830, 920, 180, 140, green, grey)
-            button("7km/hr", 830, 1070, 180, 140, green, grey)
-            button("MAX", 830, 1220, 180, 140, green, grey)
-            button("Set Here", 20, 280, 380, 380, greyblue, grey)
-            button("Cancel", 440, 280, 380, 380, red, grey)
-        pygame.display.flip()
-        clock.tick(30)
-
-
-def goingToApproach():
-    global sendCartControl
-    sendCartControl = False
-    global approach
-    pygame.time.set_timer(sendcart_event, sendcartTimer)
-    control = True
-    while control:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                quit()
-            if event.type == sendcart_event:
-                cartLoc = v.location
-                distToApproach = distBwPoints(approach[0], approach[1], cartLoc.lat, cartLoc.lon)
-                print "Distance to approach is ", distToApproach, "m \n"
-                if 30 > distToApproach:
-                    speed4()
-                if 10 > distToApproach:
-                    print "Approach is being reached, stopping now! \n"
-                    controlledStop()
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                button("QUICK STOP", 20, 1150, 800, 200, red, grey, emergencyStop)
-                button("Go", 20, 280, 380, 380, greyblue, greyblue, goToApproach)
-                button("Cancel", 440, 280, 380, 380, greyblue, red, homeScreen)
-                button("Controlled Stop", 20, 20, 800, 200, yellow, grey, controlledStop)
-                button("Remote", 830, 20, 180, 140, green, grey, speedReturn)
-                button("SLOW", 830, 170, 180, 140, green, grey, speedSlow)
-                button("3km/hr", 830, 470, 180, 140, green, grey, speed3)
-                button("4km/hr", 830, 620, 180, 140, green, grey, speed4)
-                button("5km/hr", 830, 770, 180, 140, green, grey, speed5)
-                button("6km/hr", 830, 920, 180, 140, green, grey, speed6)
-                button("7km/hr", 830, 1070, 180, 140, green, grey, speed7)
-                button("MAX", 830, 1220, 180, 140, green, grey, speedMax)
-            window.fill(white)
-
-            button("QUICK STOP", 20, 1150, 800, 200, red, grey)
-            button("Controlled Stop", 20, 20, 800, 200, yellow, grey)
-            button("Remote", 830, 20, 180, 140, green, grey)
-            button("SLOW", 830, 170, 180, 140, green, grey)
-            button("3km/hr", 830, 470, 180, 140, green, grey)
-            button("4km/hr", 830, 620, 180, 140, green, grey)
-            button("5km/hr", 830, 770, 180, 140, green, grey)
-            button("6km/hr", 830, 920, 180, 140, green, grey)
-            button("7km/hr", 830, 1070, 180, 140, green, grey)
-            button("MAX", 830, 1220, 180, 140, green, grey)
-            button("Go", 20, 280, 380, 380, green, grey)
-            button("Cancel", 440, 280, 380, 380, red, grey)
-        pygame.display.flip()
-        clock.tick(30)
-
-
-def goToApproachFromUnload():
-    goToApproach()
-    goingToApproach()
-
-
-def empty():
-    global sendCartControl
-    sendCartControl = False
-    # This is based off the combine position, so you push empty when
-    # your done unloading and the cart turns around.
-    pygame.time.set_timer(sendcart_event, sendcartTimer)
-    combineLoc = getGpsLoc()
-    loc = cartUnldLoc(20, -25, combineLoc)
-    cartGoalLoc = Location(loc[0], loc[1], altitude, is_relative=True)
-    cmds.goto(cartGoalLoc)
-    v.flush()
-    control = True
-    while control:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                quit()
-            if event.type == sendcart_event:
-                cartLoc = v.location
-                distToReady = distBwPoints(loc[0], loc[1], cartLoc.lat, cartLoc.lon)
-                print "Distance to Ready location is ", distToReady, "m \n"
-                if 30 > distToReady:
-                    speed4()
-                if 10 > distToReady:
-                    print "Ready location is being reached, stopping now! \n"
-                    controlledStop()
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                button("QUICK STOP", 20, 1150, 800, 200, red, grey, emergencyStop)
-                button("Controlled Stop", 20, 20, 800, 200, yellow, grey, controlledStop)
-                button("Remote", 830, 20, 180, 140, green, grey, speedReturn)
-                button("SLOW", 830, 170, 180, 140, green, grey, speedSlow)
-                button("3km/hr", 830, 470, 180, 140, green, grey, speed3)
-                button("4km/hr", 830, 620, 180, 140, green, grey, speed4)
-                button("5km/hr", 830, 770, 180, 140, green, grey, speed5)
-                button("6km/hr", 830, 920, 180, 140, green, grey, speed6)
-                button("7km/hr", 830, 1070, 180, 140, green, grey, speed7)
-                button("MAX", 830, 1220, 180, 140, green, grey, speedMax)
-            window.fill(white)
-
-            button("QUICK STOP", 20, 1150, 800, 200, red, grey)
-            button("Controlled Stop", 20, 20, 800, 200, yellow, grey)
-            button("Remote", 830, 20, 180, 140, green, grey)
-            button("SLOW", 830, 170, 180, 140, green, grey)
-            button("3km/hr", 830, 470, 180, 140, green, grey)
-            button("4km/hr", 830, 620, 180, 140, green, grey)
-            button("5km/hr", 830, 770, 180, 140, green, grey)
-            button("6km/hr", 830, 920, 180, 140, green, grey)
-            button("7km/hr", 830, 1070, 180, 140, green, grey)
-            button("MAX", 830, 1220, 180, 140, green, grey)
-        pygame.display.flip()
-        clock.tick(30)
-
-
-def guideRight():
-    global nudge
-    nudge = 39.0  # change this to set distance away from combine cart initially starts
-    global nudgeFront
-    # negative number is unsatisfying solution to get cart on left.
-    # I reverse combine heading as well below.
-    nudgeFront = -40.0
-    global approach
-    # starts the grain cart moving to GPS coordinates for unloading
-    pygame.time.set_timer(sendcart_event, sendcartTimer)
-    modeSet = False
-    control = True
-
-    while control:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                quit()
-            if event.type == sendcart_event:
-                combineLoc = getGpsLoc()
-                # Reversing heading here
-                combineLoc[2] += 180.0
-                # put vehicle in guided mode and avoid doing it over and over
-                if modeSet is False:
-                    while v.mode.name != "GUIDED":
-                        v.mode = VehicleMode("GUIDED")
-                        v.flush()
-                        if v.mode.name == "GUIDED":
-                            print "Tractor is in gear! \n"
-                            modeSet = True
-                if modeSet is True:
-                    loc = cartUnldLoc(offsetLeft + nudge, offsetAhead + nudgeFront, combineLoc)
-                    cartGoalLoc = Location(loc[0], loc[1], altitude, is_relative=True)
-                    cmds.goto(cartGoalLoc)
-                    v.flush()
-                    # ~ print "Sending Cart to ", cartLoc
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                button("QUICK STOP", 20, 1150, 800, 200, red, grey, emergencyStop)
-                button("Move Left", 20, 280, 380, 380, greyblue, grey, moveLeft)
-                button("Move Right", 440, 280, 380, 380, greyblue, grey, moveRight)
-                button("Controlled Stop", 20, 20, 800, 200, yellow, grey, controlledStop)
-                button("Remote", 830, 20, 180, 140, green, grey, speedReturn)
-                button("SLOW", 830, 170, 180, 140, green, grey, speedSlow)
-                button("2km/hr", 830, 320, 180, 140, green, grey, speed2)
-                button("3km/hr", 830, 470, 180, 140, green, grey, speed3)
-                button("4km/hr", 830, 620, 180, 140, green, grey, speed4)
-                button("5km/hr", 830, 770, 180, 140, green, grey, speed5)
-                button("6km/hr", 830, 920, 180, 140, green, grey, speed6)
-                button("7km/hr", 830, 1070, 180, 140, green, grey, speed7)
-                button("MAX", 830, 1220, 180, 140, green, grey, speedMax)
-                if approach[0] != 0:
-                    button("Go To Approach", 440, 720, 380, 380, green, grey, goToApproachFromUnload)
-            window.fill(white)
-            # buttons
-            button("QUICK STOP", 20, 1150, 800, 200, red, grey)
-            button("Controlled Stop", 20, 20, 800, 200, yellow, grey)
-            button("Remote", 830, 20, 180, 140, green, grey)
-            button("SLOW", 830, 170, 180, 140, green, grey)
-            button("2km/hr", 830, 320, 180, 140, green, grey)
-            button("3km/hr", 830, 470, 180, 140, green, grey)
-            button("4km/hr", 830, 620, 180, 140, green, grey)
-            button("5km/hr", 830, 770, 180, 140, green, grey)
-            button("6km/hr", 830, 920, 180, 140, green, grey)
-            button("7km/hr", 830, 1070, 180, 140, green, grey)
-            button("MAX", 830, 1220, 180, 140, green, grey)
-            button("Move Left", 20, 280, 380, 380, greyblue, grey)
-            button("Move Right", 440, 280, 380, 380, greyblue, grey)
-            if approach[0] != 0:
-                button("Go To Approach", 440, 720, 380, 380, green, grey)
-        pygame.display.flip()
-        clock.tick(30)
-
-
-homeScreen()
+###End of Buttons
+root.mainloop()
