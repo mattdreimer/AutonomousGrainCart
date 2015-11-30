@@ -2,7 +2,7 @@ AutonomousGrainCart
 ===================
 *Software for interacting with an autonomous tractor that has been setup with [Pixhawk](https://pixhawk.org) hardware.*
 
-Run this code as like you would start any other python file.
+Run this code like you would start any other python file.
 
 This script currently uses version 2 of DroneKit below is a link to the documentation.
 
