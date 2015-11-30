@@ -2,13 +2,11 @@ AutonomousGrainCart
 ===================
 *Software for interacting with an autonomous tractor that has been setup with [Pixhawk](https://pixhawk.org) hardware.*
 
-Run this code as a module in mavproxy, see the following links for more info.
+Run this code as like you would start any other python file.
 
-[Dronecode Modules](http://dronecode.github.io/MAVProxy/html/modules/index.html)
+This script currently uses version 2 of DroneKit below is a link to the documentation.
 
-Below is the link for the DroneKit-Python version 2 migration guide. This script currently uses version 1.
-
-[Drone API Migration Guide](http://python.dronekit.io/guide/migrating.html)
+[Drone Kit](http://python.dronekit.io/guide/index.html)
 
 # Installation instruction for OSX
 
@@ -20,19 +18,6 @@ Install the necessary dependencies for Pygame
 
 `brew install mercurial python sdl sdl_image sdl_mixer sdl_ttf smpeg portmidi`
 
-`pip install hg+http://bitbucket.org/pygame/pygame`
+Install DroneKit 2 (Mac and Linux)
 
-Install MAVProxy
-
-`brew tap homebrew/science`
-
-`brew install wxmac wxpython opencv`
-
-`pip install numpy pyparsing MAVProxy`
-
-Install DroneKit 1.5.0
-
-`pip install -I https://github.com/dronekit/dronekit-python/archive/v1.5.0.tar.gz`
-
-
-Matthew Reimer, 2015
+sudo pip install dronekit
