@@ -1,0 +1,6 @@
+analog read values from arduino pro mini.
+these are the wires coming from the lever to the arduino.
+high is (high location first range) 
+multiply these numbers by 4 to get dac values
+high 544      156
+low  257       78
