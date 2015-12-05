@@ -1,5 +1,5 @@
-// This has not been fully tested in the tractor
-// but works well on the bench
+//This code has been tested in the tractor.
+//Everything works as expected
 
 const int blueIn =    2;
 const int whiteIn =   3;
@@ -19,8 +19,10 @@ int brownState= 0;
 const int signalPin = 10;
 int signalState = 1000;
 
-const int safetyPin = 11;
-int safetyState =1;
+const int safetyPin = 12;
+int safetyState =0;
+
+const int ground = 11;
 
 //function to pass signals through
 void passThru(){
@@ -56,16 +58,21 @@ void setup() {
   pinMode(brownOut, OUTPUT);
   
   pinMode(signalPin, INPUT);
-  pinMode(safetyPin, INPUT_PULLUP);
+  pinMode(safetyPin, INPUT);
+
+  pinMode(ground, OUTPUT);
+  digitalWrite(ground, LOW);
 //  Serial.begin(9600);
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
-  signalState= pulseIn(signalPin, HIGH, 30000);
+  signalState= pulseIn(signalPin, HIGH, 40000);
   safetyState= digitalRead(safetyPin);
 //  Serial.println(signalState);
-  if (2100 > signalState && signalState > 1900 && safetyState == 0)  { 
+//  Serial.println("safetyState");
+//  Serial.println(safetyState);
+  if (2100 > signalState && signalState > 1900 && safetyState == 1)  { 
     inGear();
   }else {
     passThru();

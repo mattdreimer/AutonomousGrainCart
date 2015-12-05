@@ -1,11 +1,6 @@
-/**************************************************************************/
-/*! 
+//This code has been tested in the tractor.
+//Everything works as expected.
 
-    Adafruit invests time and resources providing this open source code, 
-    please support Adafruit and open-source hardware by purchasing 
-    products from Adafruit!
-*/
-/**************************************************************************/
 #include <Wire.h>
 #include <Adafruit_MCP4725.h>
 
@@ -31,7 +26,7 @@ const int signalPin = 10;
 int signalState = 900;
 
 const int safetyPin = 11;
-int safetyState =1;
+int safetyState =0;
 
 //function to change speed
 void controlSpeed(){
@@ -40,8 +35,8 @@ void controlSpeed(){
     safetyState= digitalRead(safetyPin);
     int sensorValueLow = analogRead(A0);
     
-    if (safetyState == 0 && 1000 > signalState && sensorValueLow<82) {
-      while (safetyState == 0){
+    if (safetyState == 1 && 1000 > signalState && sensorValueLow<82) {
+      while (safetyState == 1){
         //This should be code that reacts to pixhawk
         safetyState = digitalRead(safetyPin);
         signalState= pulseIn(signalPin, HIGH, 40000);
@@ -67,8 +62,8 @@ void controlSpeed(){
       }
 
     }
-    else if (safetyState == 1 && sensorValueLow<82) {
-      while(safetyState==1){
+    else if (safetyState == 0 && sensorValueLow<82) {
+      while(safetyState==0){
         passThru();
         safetyState= digitalRead(safetyPin);
 //        Serial.println("Pass through after safety released");
@@ -100,13 +95,14 @@ void setup(void) {
   dacHigh.begin(0x63);
   
   pinMode(signalPin, INPUT);
-  pinMode(safetyPin, INPUT_PULLUP);
+  pinMode(safetyPin, INPUT);
 }
 
 void loop(void) {
   safetyState= digitalRead(safetyPin);
+//  signalState= pulseIn(signalPin, HIGH, 40000);
 //  Serial.println(signalState);
-  if (safetyState == 0) { 
+  if (safetyState == 1) { 
     controlSpeed();
   }else {
     passThru();
