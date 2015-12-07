@@ -1,7 +1,9 @@
 #Run this file to obtain a dictionary for calibrating the speed in Gcart.py
+#Slider at top controls steering after you push start button which puts tractor in manual mode
 #After you follow the instructions on the screen and stop the tractor 
 #you will need to copy paste the dictionary into setSpeed function
 #setSpeed can be found at approx line 100 in Gcart.py
+
 
 from Tkinter import *
 import ttk
@@ -76,6 +78,38 @@ for x in range(2):
 	tracHealth.rowconfigure(x, weight=1)
 ###End of Tractor Health frame###
 
+###Top Info Frame####
+#put slider here for manually steering the tractor during calibration
+
+def setSteering(wheelAngle):
+	#Function for changing wheel angle. wheelAngle is a number (0-whatever
+	# default is 8
+	if wheelAngle==0:
+		rc1Val=1000
+	else:
+		rc1Val=int(wheelAngle/8.0*1000+1000)
+		if rc1Val>2000:
+			rc1Val=2000
+		elif rc1Val<1000:
+			rc1Val=1000
+	#~ print "servo 1 ", rc1Val
+	v.channels.overrides["1"] = rc1Val
+
+def setWheelAngleonRelease(instanceVar):
+	setSteering(wheelAngleVal.get())
+							
+wheelAngleVal = DoubleVar()
+wheelAngleScale = ttk.Scale(topInfo, 
+	orient=HORIZONTAL, 
+	from_=8.0, 
+	to=0.0, 
+	variable= wheelAngleVal, 
+	style="Speed.Horizontal.TScale")
+wheelAngleScale.bind("<ButtonRelease-1>", setWheelAngleonRelease)
+wheelAngleScale.grid(column=0, row=0, sticky=(N,E,S,W))
+topInfo.columnconfigure(0, weight=1)
+topInfo.rowconfigure(0, weight=1)
+
 ###SpeedSelFrame####
 def setTargetSpeed(scaleVal):
 	#Updates target speed as slider is moved
@@ -96,7 +130,7 @@ def setSpeed(requestSpeed):
 		elif rc8Val<1000:
 			rc8Val=1000
 	
-	v.channels.overrides = {7:rc8Val}
+	v.channels.overrides["8"] = rc8Val
 
 def setSpeedonRelease(instanceVar):
 	setSpeed(speedScaleVal.get())
@@ -222,11 +256,12 @@ def speedCalibration(speedCalibrationControl):
 			print "Started Calibration process"
 		else:
 			print "Calibration done push stop button"
-		while v.mode.name!="GUIDED":
-			print "got here"
-			v.mode = VehicleMode("GUIDED")
+		#Tractor needs to be in manual mode to pass rcOverrides through
+		while v.mode.name!="MANUAL":
+			v.mode = VehicleMode("MANUAL")
 			time.sleep(1)
-			print v.mode.name
+			print v.mode.name		
+		v.channels.overrides["3"] = 2000
 		print "Tractor is in Gear"
 		if count==1:
 			speedDict={0:1000}
@@ -243,6 +278,7 @@ def speedCalibration(speedCalibrationControl):
 		if sendCartStatus==False:
 			print "copy paste the following into blank file"
 			print speedDict
+			v.channels.overrides["3"] = 1000
 			while v.mode.name!="HOLD":
 				v.mode = VehicleMode("HOLD")
 				time.sleep(1)
@@ -271,6 +307,9 @@ def startCalibration():
 	sendCartStatus=True
 	print v.mode.name
 	speedCalibrationControl.set()
+
+def armDisarm():
+	v.channels.overrides["4"] = 2000
 
 	
 for x in range(3):
@@ -320,8 +359,8 @@ startUnloadingButton.grid(
 	sticky=(N,E,S,W))
 	
 guideRightButton=ttk.Button(buttons, 
-	text="Guide Right", 
-	command= print_mode,
+	text="Arm/Disarm", 
+	command= armDisarm,
 	style="Default.TButton")
 guideRightButton.grid(
 	column=2, 

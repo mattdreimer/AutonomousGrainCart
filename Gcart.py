@@ -110,7 +110,7 @@ def setSpeed(requestSpeed):
 		spread=speedDict[upperVal]-speedDict[lowerVal]
 		rc8Val=int((requestSpeed-lowerVal)*spread+speedDict[lowerVal])
 	
-	v.channels.overrides = {7:rc8Val}
+	v.channels.overrides["8"] = rc8Val
 
 def setSpeedonRelease(instanceVar):
 	setSpeed(speedScaleVal.get())
@@ -314,7 +314,6 @@ def sendCart(sendCartControl):
 		sendCartControl.wait()
 		print "Started sending tractor process"
 		while v.mode.name!="GUIDED":
-			print "got here"
 			v.mode = VehicleMode("GUIDED")
 			time.sleep(1)
 			print v.mode.name

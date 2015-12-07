@@ -4,3 +4,7 @@ high is (high location first range)
 multiply these numbers by 4 to get dac values
 high 544      156
 low  257       78
+
+below is calibrated dictionary for my tractor needs to be placed in Gcart.py
+at approx line 100
+{0: 1000, 1: 1127, 2: 1222, 3: 1330, 4: 1431, 5: 1538, 6: 1650, 7: 1761, 8: 2000}
