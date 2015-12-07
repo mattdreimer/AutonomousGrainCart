@@ -110,7 +110,7 @@ def setSpeed(requestSpeed):
 		spread=speedDict[upperVal]-speedDict[lowerVal]
 		rc8Val=int((requestSpeed-lowerVal)*spread+speedDict[lowerVal])
 	
-	v.channels.overrides = {8:rc8Val}
+	v.channels.overrides = {7:rc8Val}
 
 def setSpeedonRelease(instanceVar):
 	setSpeed(speedScaleVal.get())

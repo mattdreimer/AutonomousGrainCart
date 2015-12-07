@@ -96,7 +96,7 @@ def setSpeed(requestSpeed):
 		elif rc8Val<1000:
 			rc8Val=1000
 	
-	v.channels.overrides = {8:rc8Val}
+	v.channels.overrides = {7:rc8Val}
 
 def setSpeedonRelease(instanceVar):
 	setSpeed(speedScaleVal.get())
