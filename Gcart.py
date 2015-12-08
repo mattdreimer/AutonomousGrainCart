@@ -10,6 +10,11 @@ import gps
 import socket
 import math
 
+#Use this line for connecting with 3dr radio
+v = connect("/dev/ttyUSB0", baud=57600 , wait_ready=True)
+#use this line for connecting to simulation
+#~ v = connect("127.0.0.1:14550", wait_ready=True)
+print "Connected to Tractor \nReady to Go!!!"
 
 root = Tk()
 root.title("GcartLayout")
@@ -40,11 +45,42 @@ root.rowconfigure(5, weight=6)
 #~ root.rowconfigure(6, weight=2)
 
 ###topInfoFrame###
+def gps_callback(self, attr_name, value):
+	if value.fix_type==3:
+		gpsLabel.configure(foreground="green")
+	else:
+		gpsLabel.configure(foreground="red")
+	gpsStatus.set("%dDGPS Sats: %d" %(value.fix_type, value.satellites_visible))
+v.add_attribute_listener("gps_0", gps_callback)
+	
+gpsStatus = StringVar()
+gpsLabel = ttk.Label(topInfo, textvariable=gpsStatus, anchor="center", font=("",12,""))
+gpsLabel.grid(column=0, row=0, sticky=(N,E,S,W))
 
-#Should have GpsStatus, Radio Link status and strength (see mavproxy console),
-#and Arm status of pixhawk (see mavproxy console)
-#leave some space for more information to be displayed
+@v.on_message("RADIO")
+def listener(self, name, message):
+	if message.rssi < message.noise+10 or message.remrssi < message.remnoise+10:
+		radioLabel.configure(foreground="red")
+	else:
+		radioLabel.configure(foreground="black")
+	radioStatus.set('Radio %u/%u %u/%u' % (message.rssi, message.noise, message.remrssi, message.remnoise))
 
+radioStatus = StringVar()
+radioLabel = ttk.Label(topInfo, textvariable=radioStatus, anchor="center", font=("",12,""))
+radioLabel.grid(column=0, row=1, sticky=(N,E,S,W))
+
+@v.on_message("NAV_CONTROLLER_OUTPUT")
+def listener(self, name, message):
+    wpDist.set("Distance to waypoint: %s(m)" %(message.wp_dist))
+    
+wpDist = StringVar()
+wpDistLabel = ttk.Label(topInfo, textvariable=wpDist, anchor="center", font=("",12,""))
+wpDistLabel.grid(column=1, row=0, sticky=(N,E,S,W))
+
+for x in range(4):
+	topInfo.columnconfigure(x, weight=1)
+for x in range(2):
+	topInfo.rowconfigure(x, weight=1)
 ###End of topInfo Frame####
 
 ###tractorHealthFrame###
@@ -72,12 +108,6 @@ class Std_redirector(object):
 			
 sys.stdout = Std_redirector(text)
 ###End of Terminal Frame###
-
-#Use this line for connecting with 3dr radio
-v = connect("/dev/ttyUSB0", baud=57600 , wait_ready=True)
-#use this line for connecting to simulation
-#~ v = connect("127.0.0.1:14550", wait_ready=True)
-print "Connected to Tractor \nReady to Go!!!"
 
 ###Tractor Health frame###
 #Still need to set up labels with callbacks for temp, oil, fuel, and rpm
@@ -233,25 +263,29 @@ def distBwPoints(lat1,lon1,lat2,lon2):
 	c=math.sqrt(a*a+b*b)
 	#~ print "c=",c
 	return c
-
+	
+nextGpsLoc = []
 def getGpsLoc():
 	#returns list of lat,lon,track,speed
 	# Use the python gps package to access the laptop GPS
+	global nextGpsLoc
 	try:
 		gpsd = gps.gps(mode=gps.WATCH_ENABLE)
 		# Once we have a valid location (see gpsd documentation) we can start moving our vehicle around
 		# This is necessary to read the GPS state from the laptop
-		gpsd.next()
 		gotgps=True
 		while gotgps:
 			gpsd.next()
 			if (gpsd.valid & gps.LATLON_SET) != 0:
-				loc = [gpsd.fix.latitude, gpsd.fix.longitude, gpsd.fix.track,gpsd.fix.speed]
-				return loc
+				nextGpsLoc = [gpsd.fix.latitude, gpsd.fix.longitude, gpsd.fix.track,gpsd.fix.speed]
+				print "got new gps position"
 	except socket.error:
 		print "Error the GPS does not seem to be Connected \n"
 	#uncomment below return statement to test program and comment out while loop above
 	#~ return [49.0,-99.0,270,0]
+gpsThread = threading.Thread(target=getGpsLoc)
+gpsThread.start()	
+
 
 def cartUnldLoc(distLeft,distAhead,combineLoc):
 	#returns lat lon that is dist left and dist ahead of combine location.
@@ -309,42 +343,46 @@ def sendCart(sendCartControl):
 	global turnSet
 	global forwardSet
 	global sendCartStatus
+	global nextGpsLoc
+	combineLoc=[]
 	while True:
 		#~ print "sendCartThread is Running"
 		sendCartControl.wait()
-		print "Started sending tractor process"
+		#~ print "Started sending tractor process"
 		while v.mode.name!="GUIDED":
 			v.mode = VehicleMode("GUIDED")
 			time.sleep(1)
 			print v.mode.name
-		print "Tractor is in Gear \nStarting to get gps location of combine"
-		combineLoc=getGpsLoc()
-		print "Got Gps Location"
-		loc=cartUnldLoc(offsetLeft+nudge,offsetAhead+nudgeFront,combineLoc)
-		#check distance b/w cart and combine if distance is below some threshold execute turn cart around only do this once
-		if turnSet==False:
-			cartLoc=v.location.global_frame
-			distance=distBwPoints(loc[0],loc[1],cartLoc.lat,cartLoc.lon)
-			if 25.0>distance:
-				print "Turning Cart Around \n"
-				turnAround()
-				turnSet=True
-		if turnSet==True and forwardSet==False:
-			cartLoc=v.location.global_frame
-			distance=distBwPoints(combineLoc[0],combineLoc[1],cartLoc.lat,cartLoc.lon)
-			if 21.0>distance:
-				bringItClose()
-				forwardSet=True
-		#~ print "Distance = ", distance
-		loc=cartUnldLoc(offsetLeft+nudge,offsetAhead+nudgeFront,combineLoc)
-		cartGoalLoc=LocationGlobal(loc[0],loc[1],0)
-		v.simple_goto(cartGoalLoc)
-		#~ print "Sending Cart to ", cartLoc
+		#~ print "Tractor is in Gear \nStarting to get gps location of combine"
+		if combineLoc!=nextGpsLoc:
+			combineLoc=nextGpsLoc
+			print "Got Gps Location"
+			loc=cartUnldLoc(offsetLeft+nudge,offsetAhead+nudgeFront,combineLoc)
+			#check distance b/w cart and combine if distance is below some threshold execute turn cart around only do this once
+			if turnSet==False:
+				cartLoc=v.location.global_frame
+				distance=distBwPoints(loc[0],loc[1],cartLoc.lat,cartLoc.lon)
+				if 25.0>distance:
+					print "Turning Cart Around \n"
+					turnAround()
+					turnSet=True
+			if turnSet==True and forwardSet==False:
+				cartLoc=v.location.global_frame
+				distance=distBwPoints(combineLoc[0],combineLoc[1],cartLoc.lat,cartLoc.lon)
+				if 21.0>distance:
+					bringItClose()
+					forwardSet=True
+			#~ print "Distance = ", distance
+			loc=cartUnldLoc(offsetLeft+nudge,offsetAhead+nudgeFront,combineLoc)
+			cartGoalLoc=LocationGlobal(loc[0],loc[1],0)
+			v.simple_goto(cartGoalLoc)
+			print "Sending Cart to ", cartLoc
 		if sendCartStatus==False:
 			while v.mode.name!="HOLD":
 				v.mode = VehicleMode("HOLD")
 				time.sleep(1)		
-sendCartThread = threading.Thread(target=sendCart, args=(sendCartControl,))
+sendCartThread = threading.Thread(target=sendCart, 
+	args=(sendCartControl,))
 sendCartThread.start()
 
 def stop():
@@ -358,6 +396,29 @@ def stop():
 	
 def print_mode():
 	pass
+	
+approach=[0,0,0,0]
+
+def setApproach():
+	global approach
+	global nextGpsLoc
+	if nextGpsLoc!=[]:
+		approach = nextGpsLoc
+		print "Approach set to here"
+		print "GPS coordinates are ", approach[0], " ", approach[1]
+		print "ARE YOU SURE THIS IS A SAFE SPOT?????!!!!! \n"
+	else:
+		print "GPS is not Working"
+	
+def arm():
+	v.channels.overrides["4"] = 2000
+	armButton.grid_remove()
+	DisarmButton.grid()
+	
+def disarm():
+	v.channels.overrides["4"] = 1000
+	DisarmButton.grid_remove()
+	armButton.grid()	
 		
 def startUnloading():
 	global nudge
@@ -395,15 +456,38 @@ buttonStyle.map("StartUnloading.Default.TButton",
 	background=[("active", "green")])
 buttonStyle.configure("StartUnloading.Default.TButton",
 	background="green")	
+buttonStyle.map("Arm.Default.TButton",
+	background=[("active", "green")])
+buttonStyle.configure("Arm.Default.TButton",
+	background="green")
+buttonStyle.map("Disarm.Default.TButton",
+	background=[("active", "red")])
+buttonStyle.configure("Disarm.Default.TButton",
+	background="red")
+buttonStyle.map("Approach.Default.TButton",
+	background=[("active", "purple")])
+buttonStyle.configure("Approach.Default.TButton",
+	background="purple")	
 		
-armDisarmButton=ttk.Button(buttons, 
-	text="Arm", 
-	command= print_mode,
-	style="Default.TButton")
-armDisarmButton.grid(
+armButton=ttk.Button(buttons, 
+	text="Arm\nTractor", 
+	command= arm,
+	style="Arm.Default.TButton")
+armButton.grid(
 	column=1, 
 	row=0, 
 	sticky=(N,E,S,W))	
+
+DisarmButton=ttk.Button(buttons, 
+	text="Disarm\nTractor", 
+	command= disarm,
+	style="Disarm.Default.TButton")
+DisarmButton.grid(
+	column=1, 
+	row=0, 
+	sticky=(N,E,S,W))
+DisarmButton.grid_remove()
+
 
 stopButton=ttk.Button(buttons, 
 	text="Stop", 
@@ -430,6 +514,15 @@ guideRightButton=ttk.Button(buttons,
 guideRightButton.grid(
 	column=2, 
 	row=1, 
+	sticky=(N,E,S,W))
+
+approachHereButton=ttk.Button(buttons, 
+	text="Approach\nIs Here", 
+	command= setApproach,
+	style="Approach.Default.TButton")
+approachHereButton.grid(
+	column=0, 
+	row=0, 
 	sticky=(N,E,S,W))
 
 ###End of Buttons
