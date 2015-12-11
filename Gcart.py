@@ -85,10 +85,41 @@ for x in range(2):
 
 ###tractorHealthFrame###
 
-#should have temp, oil, feul, and rpm of tractor displayed
-#should watch with a callback some mavlink message
-#mavlink message has not yet been implemented
+@v.on_message("TRACTOR_HEALTH")
+def listener(self, name, message):
+    #print 'Tractor Health %d %d %d %d %d' % (message.rpm_D4, message.rpm_D5, message.coolan_temp_D1, message.oil_pres_D4, message.fuel_level_D2)
+    rpm = (message.rpm_D4 + (256*message.rpm_D5))/8 ##rpm
+    coolant_temp = message.coolan_temp_D1-40 ##celsius
+    oil_pressure = message.oil_pres_D4*4/6.89476 ##psi
+    fuel_level = message.fuel_level_D2*0.4 ## percent
+    
+    rpmText.set(str(rpm))
+    coolantText.set(str(coolant_temp))
+    oilText.set(str(oil_pressure))
+    fuelText.set(str(fuel_level))
+	
+rpmText = StringVar()
+rpmLabel = ttk.Label(tracHealth, textvariable=rpmText, anchor="center", font=("",12,""))
+rpmLabel.grid(column=0, row=1, sticky=(N,E,S,W))
 
+coolantText = StringVar()
+coolantLabel = ttk.Label(tracHealth, textvariable=coolantText, anchor="center", font=("",12,""))
+coolantLabel.grid(column=1, row=1, sticky=(N,E,S,W))
+
+oilText = StringVar()
+oilLabel = ttk.Label(tracHealth, textvariable=oilText, anchor="center", font=("",12,""))
+oilLabel.grid(column=2, row=1, sticky=(N,E,S,W))
+
+fuelText = StringVar()
+fuelLabel = ttk.Label(tracHealth, textvariable=fuelText, anchor="center", font=("",12,""))
+fuelLabel.grid(column=3, row=1, sticky=(N,E,S,W))
+
+ttk.Label(tracHealth, text="Tractor Health", anchor="center", font=("",24,"")).grid(column=0, row=0, columnspan=4)
+
+for x in range(4):
+	tracHealth.columnconfigure(x, weight=1)
+for x in range(2):
+	tracHealth.rowconfigure(x, weight=1)
 ###End of tracHealthFrame###
 
 
@@ -108,15 +139,6 @@ class Std_redirector(object):
 			
 sys.stdout = Std_redirector(text)
 ###End of Terminal Frame###
-
-###Tractor Health frame###
-#Still need to set up labels with callbacks for temp, oil, fuel, and rpm
-ttk.Label(tracHealth, text="Tractor Health", anchor="center", font=("",24,"")).grid(column=0, row=0, columnspan=4)
-for x in range(4):
-	tracHealth.columnconfigure(x, weight=1)
-for x in range(2):
-	tracHealth.rowconfigure(x, weight=1)
-###End of Tractor Health frame###
 
 ###SpeedSelFrame####
 def setTargetSpeed(scaleVal):
