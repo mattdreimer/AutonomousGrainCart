@@ -13,7 +13,7 @@ import math
 #Use this line for connecting with 3dr radio
 v = connect("/dev/ttyUSB0", baud=57600 , wait_ready=True)
 #use this line for connecting to simulation
-#~ v = connect("127.0.0.1:14550", wait_ready=False)
+#~ v = connect("127.0.0.1:14550", wait_ready=True)
 print "Connected to Tractor \nReady to Go!!!"
 
 root = Tk()
