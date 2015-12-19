@@ -13,7 +13,7 @@ import math
 #Use this line for connecting with 3dr radio
 v = connect("/dev/ttyUSB0", baud=57600 , wait_ready=True)
 #use this line for connecting to simulation
-#~ v = connect("127.0.0.1:14550", wait_ready=True)
+#~ v = connect("127.0.0.1:14550", wait_ready=False)
 print "Connected to Tractor \nReady to Go!!!"
 
 root = Tk()
@@ -84,41 +84,81 @@ for x in range(2):
 ###End of topInfo Frame####
 
 ###tractorHealthFrame###
-
 @v.on_message("TRACTOR_HEALTH")
 def listener(self, name, message):
-    #print 'Tractor Health %d %d %d %d %d' % (message.rpm_D4, message.rpm_D5, message.coolan_temp_D1, message.oil_pres_D4, message.fuel_level_D2)
+    #print 'Tractor Health %d %d %d %d %d' % (message.rpm_D4, message.rpm_D5, 
+    #   message.coolan_temp_D1, message.oil_pres_D4, message.fuel_level_D2)
     rpm = (message.rpm_D4 + (256*message.rpm_D5))/8 ##rpm
     coolant_temp = message.coolan_temp_D1-40 ##celsius
     oil_pressure = message.oil_pres_D4*4/6.89476 ##psi
     fuel_level = message.fuel_level_D2*0.4 ## percent
     
     rpmText.set(str(rpm))
-    coolantText.set(str(coolant_temp))
-    oilText.set(str(oil_pressure))
-    fuelText.set(str(fuel_level))
-	
+    coolantText.set(str(int(coolant_temp))+" C")
+    oilText.set(str(int(oil_pressure))+" PSI")
+    fuelPercent.set(int(fuel_level))
+
+    if fuel_level<25:
+        fuelLabel.configure(style="FuelR.Vertical.TProgressbar")
+    else:
+       fuelLabel.configure(style="FuelG.Vertical.TProgressbar")    
+    
+    if coolant_temp<=70:
+        coolantLabel.configure(foreground="blue")
+    elif coolant_temp>=95:
+        coolantLabel.configure(foreground="red")
+    elif 70<coolant_temp<95:
+        coolantLabel.configure(foreground="green")
+    else:
+        coolantLabel.configure(foreground="black")
+
+    if 25<oil_pressure<50:
+        oilLabel.configure(foreground="green")
+    else:
+        oilLabel.configure(foreground="red")
+    	
 rpmText = StringVar()
-rpmLabel = ttk.Label(tracHealth, textvariable=rpmText, anchor="center", font=("",12,""))
-rpmLabel.grid(column=0, row=1, sticky=(N,E,S,W))
+rpmLabel = ttk.Label(tracHealth, textvariable=rpmText, anchor="center", 
+	font=("",18,""))
+rpmLabel.grid(column=0, row=1, rowspan=3, sticky=(N,E,S,W))
 
 coolantText = StringVar()
-coolantLabel = ttk.Label(tracHealth, textvariable=coolantText, anchor="center", font=("",12,""))
-coolantLabel.grid(column=1, row=1, sticky=(N,E,S,W))
+coolantLabel = ttk.Label(tracHealth, textvariable=coolantText, anchor="center", 
+	font=("",18,""))
+coolantLabel.grid(column=1, row=1, rowspan=3, sticky=(N,E,S,W))
 
 oilText = StringVar()
-oilLabel = ttk.Label(tracHealth, textvariable=oilText, anchor="center", font=("",12,""))
-oilLabel.grid(column=2, row=1, sticky=(N,E,S,W))
+oilLabel = ttk.Label(tracHealth, textvariable=oilText, anchor="center", 
+	font=("",18,""))
+oilLabel.grid(column=2, row=1, rowspan=3, sticky=(N,E,S,W))
 
-fuelText = StringVar()
-fuelLabel = ttk.Label(tracHealth, textvariable=fuelText, anchor="center", font=("",12,""))
-fuelLabel.grid(column=3, row=1, sticky=(N,E,S,W))
+fuelStyle = ttk.Style()
+fuelStyle.configure("FuelG.Vertical.TProgressbar", 
+	background="green")
+fuelStyle.configure("FuelR.Vertical.TProgressbar", 
+	background="red")
 
-ttk.Label(tracHealth, text="Tractor Health", anchor="center", font=("",24,"")).grid(column=0, row=0, columnspan=4)
+fuelPercent = IntVar()
+fuelLabel = ttk.Progressbar(tracHealth, orient=VERTICAL, variable=fuelPercent)
+fuelLabel.grid(column=3, row=1, rowspan=4, sticky=(N,E,S,W))
 
-for x in range(4):
-	tracHealth.columnconfigure(x, weight=1)
-for x in range(2):
+ttk.Label(tracHealth, text="Fuel", anchor="center", 
+	font=("",20,"")).grid(column=3, row=0)
+
+ttk.Label(tracHealth, text="Coolant\nCelsius", anchor="center", 
+    justify="center", font=("",20,"")).grid(column=1, row=0)
+
+ttk.Label(tracHealth, text="Engine\nRPM", anchor="center", justify="center",
+    font=("",20,"")).grid(column=0, row=0)
+
+ttk.Label(tracHealth, text="Oil PSI\nPressure", anchor="center", 
+    justify="center", font=("",20,"")).grid(column=2, row=0)
+
+for x in range(3):
+	tracHealth.columnconfigure(x, weight=10)
+tracHealth.columnconfigure(3, weight=1)
+tracHealth.columnconfigure(4, weight=1)
+for x in range(5):
 	tracHealth.rowconfigure(x, weight=1)
 ###End of tracHealthFrame###
 
