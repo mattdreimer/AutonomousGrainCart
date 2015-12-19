@@ -21,7 +21,8 @@ root.title("GcartLayout")
 root.attributes('-zoomed', True)
 
 # Create the frames for layout
-frameTuple=("terminal", "topInfo", "tracHealth", "buttons", "lowerInfo", "speedSel")
+frameTuple=("terminal", "topInfo", "tracHealth", "buttons", "lowerInfo", 
+    "speedSel")
 for x in frameTuple:
 	globals()[x] = ttk.Frame(root, relief="groove", padding="3")
 	globals()[x].grid_propagate(False)
@@ -54,7 +55,8 @@ def gps_callback(self, attr_name, value):
 v.add_attribute_listener("gps_0", gps_callback)
 	
 gpsStatus = StringVar()
-gpsLabel = ttk.Label(topInfo, textvariable=gpsStatus, anchor="center", font=("",12,""))
+gpsLabel = ttk.Label(topInfo, textvariable=gpsStatus, anchor="center", 
+    font=("",12,""))
 gpsLabel.grid(column=0, row=0, sticky=(N,E,S,W))
 
 @v.on_message("RADIO")
@@ -63,10 +65,12 @@ def listener(self, name, message):
 		radioLabel.configure(foreground="red")
 	else:
 		radioLabel.configure(foreground="black")
-	radioStatus.set('Radio %u/%u %u/%u' % (message.rssi, message.noise, message.remrssi, message.remnoise))
+	radioStatus.set('Radio %u/%u %u/%u' % (message.rssi, message.noise, 
+        message.remrssi, message.remnoise))
 
 radioStatus = StringVar()
-radioLabel = ttk.Label(topInfo, textvariable=radioStatus, anchor="center", font=("",12,""))
+radioLabel = ttk.Label(topInfo, textvariable=radioStatus, anchor="center", 
+    font=("",12,""))
 radioLabel.grid(column=0, row=1, sticky=(N,E,S,W))
 
 @v.on_message("NAV_CONTROLLER_OUTPUT")
@@ -74,7 +78,8 @@ def listener(self, name, message):
     wpDist.set("Distance to waypoint: %s(m)" %(message.wp_dist))
     
 wpDist = StringVar()
-wpDistLabel = ttk.Label(topInfo, textvariable=wpDist, anchor="center", font=("",12,""))
+wpDistLabel = ttk.Label(topInfo, textvariable=wpDist, anchor="center", 
+    font=("",12,""))
 wpDistLabel.grid(column=1, row=0, sticky=(N,E,S,W))
 
 for x in range(4):
@@ -189,7 +194,8 @@ def setSpeed(requestSpeed):
 	#Function for changing speed. requestSpeed is a number (0-whatever
 	#the top speed is set for) default is 8mph
 	#speedDict is a dictionary that can be obtained by running CalibrateSpeed.py
-	speedDict={0:1000, 1: 1100, 2: 1200, 3: 1500, 4: 1600, 5: 1700, 6: 1800, 7: 1900, 8: 2000}
+	speedDict={0:1000, 1: 1100, 2: 1200, 3: 1500, 4: 1600, 5: 1700, 6: 1800, 
+        7: 1900, 8: 2000}
 	speedScaleVal.set(requestSpeed)
 	setTargetSpeed(requestSpeed)
 	
@@ -269,7 +275,8 @@ def mode_callback(self, attr_name, value):
 v.add_attribute_listener("mode", mode_callback)
 
 inGearStatus = StringVar()
-inGearLabel = ttk.Label(lowerInfo, textvariable=inGearStatus, anchor="center",font=("",24,""))
+inGearLabel = ttk.Label(lowerInfo, textvariable=inGearStatus, anchor="center",
+    font=("",24,""))
 inGearLabel.grid(column=0, row=0, sticky=(N,E,S,W))
 
 mode_callback(v,"mode",v.mode)
@@ -286,8 +293,10 @@ def speed_callback(self, attr_name, value):
 v.add_attribute_listener("groundspeed", speed_callback)
 
 speedStatus = StringVar()
-speedLabel = ttk.Label(lowerInfo, textvariable=speedStatus, anchor="center",font=("",24,""))
-ttk.Label(lowerInfo, text="GPS Speed", anchor="center",font=("",24,"")).grid(column=1, row=0, sticky=(N,E,W))
+speedLabel = ttk.Label(lowerInfo, textvariable=speedStatus, anchor="center",
+    font=("",24,""))
+ttk.Label(lowerInfo, text="GPS Speed", anchor="center",
+    font=("",24,"")).grid(column=1, row=0, sticky=(N,E,W))
 speedLabel.grid(column=1, row=0, sticky=(S,E,W))
 ###End of Speed watcher###
 
@@ -333,8 +342,6 @@ def getGpsLoc():
 	global nextGpsLoc
 	try:
 		gpsd = gps.gps(mode=gps.WATCH_ENABLE)
-		# Once we have a valid location (see gpsd documentation) we can start moving our vehicle around
-		# This is necessary to read the GPS state from the laptop
 		gotgps=True
 		while gotgps:
 			gpsd.next()
@@ -343,8 +350,7 @@ def getGpsLoc():
 				print "got new gps position"
 	except socket.error:
 		print "Error the GPS does not seem to be Connected \n"
-	#uncomment below return statement to test program and comment out while loop above
-	#~ return [49.0,-99.0,270,0]
+
 gpsThread = threading.Thread(target=getGpsLoc)
 gpsThread.start()	
 
@@ -352,7 +358,7 @@ gpsThread.start()
 def cartUnldLoc(distLeft,distAhead,combineLoc):
 	#returns lat lon that is dist left and dist ahead of combine location.
 	#if dist left or dist ahead is negative the offset will be behind
-	#combineLoc is a list with 4 elements in the same form that getGpsLoc returns
+	#combineLoc is list with 4 elements in the same form that getGpsLoc returns
 	#angle between headingLeft and hyptoneus line formed by the triangle 
 	#created with distLeft + distAhead
 	theta=math.degrees(math.atan(float(distAhead)/float(distLeft)))
@@ -420,7 +426,8 @@ def sendCart(sendCartControl):
 			combineLoc=nextGpsLoc
 			print "Got Gps Location"
 			loc=cartUnldLoc(offsetLeft+nudge,offsetAhead+nudgeFront,combineLoc)
-			#check distance b/w cart and combine if distance is below some threshold execute turn cart around only do this once
+			#check distance b/w cart and combine if distance is below some 
+            #threshold execute turn cart around only do this once
 			if turnSet==False:
 				cartLoc=v.location.global_frame
 				distance=distBwPoints(loc[0],loc[1],cartLoc.lat,cartLoc.lon)
@@ -430,7 +437,8 @@ def sendCart(sendCartControl):
 					turnSet=True
 			if turnSet==True and forwardSet==False:
 				cartLoc=v.location.global_frame
-				distance=distBwPoints(combineLoc[0],combineLoc[1],cartLoc.lat,cartLoc.lon)
+				distance=distBwPoints(combineLoc[0],combineLoc[1],
+                    cartLoc.lat,cartLoc.lon)
 				if 21.0>distance:
 					bringItClose()
 					forwardSet=True
@@ -484,7 +492,7 @@ def disarm():
 		
 def startUnloading():
 	global nudge
-	nudge=15.0 #change this to set distance away from combine cart initially starts
+	nudge=15.0 #distance away from combine cart initially starts
 	global nudgeFront
 	nudgeFront=0.0
 	global turnSet
