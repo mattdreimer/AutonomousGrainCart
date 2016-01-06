@@ -513,13 +513,16 @@ def startUnloading():
 def setButtons(start=True, gRight=True, here=True, LRNudge=False):
     #grids the default buttons
     global approach
-    print "approach == ",approach
     for widgets in buttons.children.values():
         widgets.grid_remove()
-
+        
     stopButton.grid()
-    armButton.grid()
-
+    if v.channels.overrides["4"]==1000:
+        armButton.grid()
+    elif v.channels.overrides["4"]==2000:
+        disarmButton.grid()
+    else:
+        disarmButton.grid()
     if start:
         startUnloadingButton.grid()
     if gRight:
@@ -621,6 +624,7 @@ goToApproachButton=ttk.Button(buttons,
     style="Approach.Default.TButton")
 goToApproachButton.grid(column=2, row=0, sticky=(N,E,S,W))
 
+v.channels.overrides["4"]=1000
 setButtons()
 
 ###End of Buttons
