@@ -335,7 +335,7 @@ def distBwPoints(lat1,lon1,lat2,lon2):
     #~ print "c=",c
     return c
     
-nextGpsLoc = []
+nextGpsLoc = [49.006680, -99.686744, 4]
 def getGpsLoc():
     #returns list of lat,lon,track,speed
     # Use the python gps package to access the laptop GPS
@@ -351,8 +351,8 @@ def getGpsLoc():
     except socket.error:
         print "Error the GPS does not seem to be Connected \n"
 
-gpsThread = threading.Thread(target=getGpsLoc)
-gpsThread.start()   
+# gpsThread = threading.Thread(target=getGpsLoc)
+# gpsThread.start()   
 
 
 def cartUnldLoc(distLeft,distAhead,combineLoc):
@@ -420,33 +420,6 @@ def sendCart(sendCartControl):
         while v.mode.name!="GUIDED":
             v.mode = VehicleMode("GUIDED")
             time.sleep(1)
-            print v.mode.name
-        #~ print "Tractor is in Gear \nStarting to get gps location of combine"
-        if combineLoc!=nextGpsLoc:
-            combineLoc=nextGpsLoc
-            print "Got Gps Location"
-            loc=cartUnldLoc(offsetLeft+nudge,offsetAhead+nudgeFront,combineLoc)
-            #check distance b/w cart and combine if distance is below some 
-            #threshold execute turn cart around only do this once
-            if turnSet==False:
-                cartLoc=v.location.global_frame
-                distance=distBwPoints(loc[0],loc[1],cartLoc.lat,cartLoc.lon)
-                if 25.0>distance:
-                    print "Turning Cart Around \n"
-                    turnAround()
-                    turnSet=True
-            if turnSet==True and forwardSet==False:
-                cartLoc=v.location.global_frame
-                distance=distBwPoints(combineLoc[0],combineLoc[1],
-                    cartLoc.lat,cartLoc.lon)
-                if 21.0>distance:
-                    bringItClose()
-                    forwardSet=True
-            #~ print "Distance = ", distance
-            loc=cartUnldLoc(offsetLeft+nudge,offsetAhead+nudgeFront,combineLoc)
-            cartGoalLoc=LocationGlobal(loc[0],loc[1],0)
-            v.simple_goto(cartGoalLoc)
-            print "Sending Cart to ", cartLoc
         if sendCartStatus==False:
             while v.mode.name!="HOLD":
                 v.mode = VehicleMode("HOLD")
@@ -494,18 +467,9 @@ def disarm():
     armButton.grid()    
         
 def startUnloading():
-    global nudge
-    nudge=15.0 #distance away from combine cart initially starts
-    global nudgeFront
-    nudgeFront=0.0
-    global turnSet
-    global forwardSet
     global sendCartControl
     global sendCartStatus
     sendCartStatus=True
-    turnSet=False
-    forwardSet=False
-    print v.mode.name
     sendCartControl.set()
     setButtons(start=False, gRight=False, LRNudge=True)
     print "got there"
@@ -516,10 +480,14 @@ def setButtons(start=True, gRight=True, here=True, LRNudge=False):
     print "approach == ",approach
     for widgets in buttons.children.values():
         widgets.grid_remove()
-
+        
     stopButton.grid()
-    armButton.grid()
-
+    if v.channels.overrides["4"]==1000:
+        armButton.grid()
+    elif v.channels.overrides["4"]==2000:
+        disarmButton.grid()
+    else:
+        disarmButton.grid()
     if start:
         startUnloadingButton.grid()
     if gRight:
@@ -621,6 +589,7 @@ goToApproachButton=ttk.Button(buttons,
     style="Approach.Default.TButton")
 goToApproachButton.grid(column=2, row=0, sticky=(N,E,S,W))
 
+v.channels.overrides["4"]=1000
 setButtons()
 
 ###End of Buttons
