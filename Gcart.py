@@ -9,11 +9,12 @@ import threading
 import gps
 import socket
 import math
+import random
 
 #Use this line for connecting with 3dr radio
-v = connect("/dev/ttyUSB0", baud=57600 , wait_ready=True)
+#~ v = connect("/dev/ttyUSB0", baud=57600 , wait_ready=True)
 #use this line for connecting to simulation
-#~ v = connect("127.0.0.1:14550", wait_ready=False)
+v = connect("127.0.0.1:14550", wait_ready=True)
 print "Connected to Tractor \nReady to Go!!!"
 
 root = Tk()
@@ -89,39 +90,48 @@ for x in range(2):
 ###End of topInfo Frame####
 
 ###tractorHealthFrame###
-@v.on_message("TRACTOR_HEALTH")
-def listener(self, name, message):
-    #print 'Tractor Health %d %d %d %d %d' % (message.rpm_D4, message.rpm_D5, 
-    #   message.coolan_temp_D1, message.oil_pres_D4, message.fuel_level_D2)
-    rpm = (message.rpm_D4 + (256*message.rpm_D5))/8 ##rpm
-    coolant_temp = message.coolan_temp_D1-40 ##celsius
-    oil_pressure = message.oil_pres_D4*4/6.89476 ##psi
-    fuel_level = message.fuel_level_D2*0.4 ## percent
-    
-    rpmText.set(str(rpm))
-    coolantText.set(str(int(coolant_temp))+" C")
-    oilText.set(str(int(oil_pressure))+" PSI")
-    fuelPercent.set(int(fuel_level))
-
-    if fuel_level<25:
-        fuelLabel.configure(style="FuelR.Vertical.TProgressbar")
-    else:
-       fuelLabel.configure(style="FuelG.Vertical.TProgressbar")    
-    
-    if coolant_temp<=70:
-        coolantLabel.configure(foreground="blue")
-    elif coolant_temp>=95:
-        coolantLabel.configure(foreground="red")
-    elif 70<coolant_temp<95:
-        coolantLabel.configure(foreground="green")
-    else:
-        coolantLabel.configure(foreground="black")
-
-    if 25<oil_pressure<50:
-        oilLabel.configure(foreground="green")
-    else:
-        oilLabel.configure(foreground="red")
+def randTracHealth():
+    #sets random tractor health messages for demo mode
+    coolant_temp = 15
+    oil_pressure = 10
+    fuel_level = 100
+    while True:
+        rpm = random.randint(1500,2000)##rpm
+        coolant_temp = coolant_temp+1 ##celsius
+        if coolant_temp == 108:
+            coolant_temp = 15
+        oil_pressure = oil_pressure+1 ##psi
+        if oil_pressure== 60:
+            oil_pressure=10
+        fuel_level = fuel_level-1 ## percent
+        if fuel_level==0:
+            fuel_level=100 
         
+        rpmText.set(str(rpm))
+        coolantText.set(str(int(coolant_temp))+" C")
+        oilText.set(str(int(oil_pressure))+" PSI")
+        fuelPercent.set(int(fuel_level))
+
+        if fuel_level<25:
+            fuelLabel.configure(style="FuelR.Vertical.TProgressbar")
+        else:
+           fuelLabel.configure(style="FuelG.Vertical.TProgressbar")    
+        
+        if coolant_temp<=70:
+            coolantLabel.configure(foreground="blue")
+        elif coolant_temp>=95:
+            coolantLabel.configure(foreground="red")
+        elif 70<coolant_temp<95:
+            coolantLabel.configure(foreground="green")
+        else:
+            coolantLabel.configure(foreground="black")
+
+        if 25<oil_pressure<50:
+            oilLabel.configure(foreground="green")
+        else:
+            oilLabel.configure(foreground="red")
+        time.sleep(0.2)
+
 rpmText = StringVar()
 rpmLabel = ttk.Label(tracHealth, textvariable=rpmText, anchor="center", 
     font=("",18,""))
@@ -165,6 +175,9 @@ tracHealth.columnconfigure(3, weight=1)
 tracHealth.columnconfigure(4, weight=1)
 for x in range(5):
     tracHealth.rowconfigure(x, weight=1)
+
+tracHealthThread = threading.Thread(target=randTracHealth)
+tracHealthThread.start()
 ###End of tracHealthFrame###
 
 
@@ -420,12 +433,14 @@ def sendCart(sendCartControl):
         while v.mode.name!="GUIDED":
             v.mode = VehicleMode("GUIDED")
             time.sleep(1)
+            if v.channels.overrides["4"]==2000:
+                disarmButton.grid_remove()
+                EmptyButton.grid()
         if sendCartStatus==False:
             while v.mode.name!="HOLD":
                 v.mode = VehicleMode("HOLD")
                 time.sleep(1)       
-sendCartThread = threading.Thread(target=sendCart, 
-    args=(sendCartControl,))
+sendCartThread = threading.Thread(target=sendCart, args=(sendCartControl,))
 sendCartThread.start()
 
 def stop():
@@ -436,9 +451,17 @@ def stop():
     sendCartStatus=False
     setButtons()
     v.mode = VehicleMode("HOLD")
+    print "The tractor has stopped!"
     
-def print_mode():
-    pass
+def nudgeRight():
+    print "You nudged the tractor right"
+
+def nudgeLeft():
+    print "You nudged the tractor left"
+
+def goToApproach():
+    print "You sent the tractor to the Approach!"
+    stop()
     
 approach=[0,0,0,0]
 
@@ -455,16 +478,30 @@ def setApproach():
             goToApproachButton.grid()
     else:
         print "GPS is not Working"
-    
+
+def empty():
+    print "Combine is empty!\nTractor is pulling away and coming to a stop"
+    stop()
+
+def guideRight():
+    global sendCartControl
+    global sendCartStatus
+    sendCartStatus=True
+    sendCartControl.set()
+    print "You asked the tractor to follow you on the right side!"
+    setButtons(start=False, LRNudge=True, gRight=False)
+
 def arm():
     v.channels.overrides["4"] = 2000
     armButton.grid_remove()
     disarmButton.grid()
+    print "Tractor is armed!\nThe light and beeper are flashing!"
     
 def disarm():
     v.channels.overrides["4"] = 1000
     disarmButton.grid_remove()
-    armButton.grid()    
+    armButton.grid()
+    print "Tractor is disarmed!\nThe tractor is now safe to approach"    
         
 def startUnloading():
     global sendCartControl
@@ -472,12 +509,11 @@ def startUnloading():
     sendCartStatus=True
     sendCartControl.set()
     setButtons(start=False, gRight=False, LRNudge=True)
-    print "got there"
+    print "You called the grain cart over!"
 
 def setButtons(start=True, gRight=True, here=True, LRNudge=False):
     #grids the default buttons
     global approach
-    print "approach == ",approach
     for widgets in buttons.children.values():
         widgets.grid_remove()
         
@@ -535,15 +571,21 @@ buttonStyle.map("Nudge.Default.TButton",
 buttonStyle.configure("Nudge.Default.TButton",
     background="lightblue")
 
+EmptyButton=ttk.Button(buttons,
+    text="Empty",
+    command= empty,
+    style="Nudge.Default.TButton")
+EmptyButton.grid(column=1, row=0, sticky=(N,E,S,W))
+
 RNudgeButton=ttk.Button(buttons, 
     text="Nudge\nRight", 
-    command= print_mode,
+    command= nudgeRight,
     style="Nudge.Default.TButton")
 RNudgeButton.grid(column=2, row=1, sticky=(N,E,S,W))
 
 LNudgeButton=ttk.Button(buttons, 
     text="Nudge\nLeft", 
-    command= print_mode,
+    command= nudgeLeft,
     style="Nudge.Default.TButton")
 LNudgeButton.grid(column=0, row=1, sticky=(N,E,S,W))
     
@@ -573,8 +615,8 @@ startUnloadingButton.grid(column=0, row=1, sticky=(N,E,S,W))
 
 guideRightButton=ttk.Button(buttons, 
     text="Guide Right", 
-    command= print_mode,
-    style="Default.TButton")
+    command= guideRight,
+    style="Nudge.Default.TButton")
 guideRightButton.grid(column=2, row=1, sticky=(N,E,S,W))
     
 approachHereButton=ttk.Button(buttons, 
@@ -585,7 +627,7 @@ approachHereButton.grid(column=0, row=0, sticky=(N,E,S,W))
 
 goToApproachButton=ttk.Button(buttons, 
     text="Go To\nApproach", 
-    command= setApproach,
+    command= goToApproach,
     style="Approach.Default.TButton")
 goToApproachButton.grid(column=2, row=0, sticky=(N,E,S,W))
 
