@@ -406,6 +406,15 @@ sendCartStatus = False
 turnSet=False
 forwardSet=False
 
+def bringItClose():
+    global nudge
+    nudge=0.0
+    setPointForwardZero()
+    print "CART IS COMING CLOSE!"
+    print "CART IS COMING CLOSE!"
+    print "CART IS COMING CLOSE!"
+    print "nudge = ",nudge, "\n"
+
 def sendCart(sendCartControl):
     #~ print "sendCartThreadisStarted"
     global turnSet
