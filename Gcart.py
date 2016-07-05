@@ -168,22 +168,22 @@ for x in range(5):
 ###End of tracHealthFrame###
 
 
-###Terminal Frame###    
-text = Tkinter.Text(terminal)
-text.grid(column=0, row=0, sticky=(N,E,S,W))
-terminal.columnconfigure(0, weight=1)
-terminal.rowconfigure(0, weight=1)
+# ###Terminal Frame###    
+# text = Tkinter.Text(terminal)
+# text.grid(column=0, row=0, sticky=(N,E,S,W))
+# terminal.columnconfigure(0, weight=1)
+# terminal.rowconfigure(0, weight=1)
 
-class Std_redirector(object):
-    def __init__(self,widget):
-        self.widget = widget
+# class Std_redirector(object):
+#     def __init__(self,widget):
+#         self.widget = widget
         
-    def write(self,string):
-        self.widget.insert(Tkinter.END,string)
-        self.widget.see(Tkinter.END)
+#     def write(self,string):
+#         self.widget.insert(Tkinter.END,string)
+#         self.widget.see(Tkinter.END)
             
-sys.stdout = Std_redirector(text)
-###End of Terminal Frame###
+# sys.stdout = Std_redirector(text)
+# ###End of Terminal Frame###
 
 ###SpeedSelFrame####
 def setTargetSpeed(scaleVal):
@@ -335,24 +335,23 @@ def distBwPoints(lat1,lon1,lat2,lon2):
     #~ print "c=",c
     return c
     
-nextGpsLoc = []
 def getGpsLoc():
     #returns list of lat,lon,track,speed
     # Use the python gps package to access the laptop GPS
-    global nextGpsLoc
     try:
         gpsd = gps.gps(mode=gps.WATCH_ENABLE)
         gotgps=True
         while gotgps:
             gpsd.next()
             if (gpsd.valid & gps.LATLON_SET) != 0:
-                nextGpsLoc = [gpsd.fix.latitude, gpsd.fix.longitude, gpsd.fix.track,gpsd.fix.speed]
                 print "got new gps position"
+                nextGpsLoc = [gpsd.fix.latitude, gpsd.fix.longitude, gpsd.fix.track,gpsd.fix.speed]
+                return nextGpsLoc
     except socket.error:
         print "Error the GPS does not seem to be Connected \n"
 
-gpsThread = threading.Thread(target=getGpsLoc)
-gpsThread.start()   
+# gpsThread = threading.Thread(target=getGpsLoc)
+# gpsThread.start()   
 
 
 def cartUnldLoc(distLeft,distAhead,combineLoc):
@@ -392,6 +391,11 @@ def setPointForward():
     nudgeFront=15.0
     print "Set point ahead ",nudgeFront,"(m) \n"
 
+def setPointForwardZero():  
+    global nudgeFront
+    nudgeFront=0.0
+    print "Set ahead distance back to normal ",nudgeFront,"(m) \n"
+
 def turnAround():
     global nudge
     print "CART IS TURNING AROUND!"
@@ -420,7 +424,7 @@ def sendCart(sendCartControl):
     global turnSet
     global forwardSet
     global sendCartStatus
-    global nextGpsLoc
+    # global nextGpsLoc
     combineLoc=[]
     while True:
         #~ print "sendCartThread is Running"
@@ -431,8 +435,10 @@ def sendCart(sendCartControl):
             time.sleep(1)
             print v.mode.name
         #~ print "Tractor is in Gear \nStarting to get gps location of combine"
+        nextGpsLoc=getGpsLoc()
         if combineLoc!=nextGpsLoc:
             combineLoc=nextGpsLoc
+            print combineLoc
             print "Got Gps Location"
             loc=cartUnldLoc(offsetLeft+nudge,offsetAhead+nudgeFront,combineLoc)
             #check distance b/w cart and combine if distance is below some 
