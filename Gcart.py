@@ -124,17 +124,17 @@ def listener(self, name, message):
         
 rpmText = StringVar()
 rpmLabel = ttk.Label(tracHealth, textvariable=rpmText, anchor="center", 
-    font=("",18,""))
+    font=("",16,""))
 rpmLabel.grid(column=0, row=1, rowspan=3, sticky=(N,E,S,W))
 
 coolantText = StringVar()
 coolantLabel = ttk.Label(tracHealth, textvariable=coolantText, anchor="center", 
-    font=("",18,""))
+    font=("",16,""))
 coolantLabel.grid(column=1, row=1, rowspan=3, sticky=(N,E,S,W))
 
 oilText = StringVar()
 oilLabel = ttk.Label(tracHealth, textvariable=oilText, anchor="center", 
-    font=("",18,""))
+    font=("",16,""))
 oilLabel.grid(column=2, row=1, rowspan=3, sticky=(N,E,S,W))
 
 fuelStyle = ttk.Style()
@@ -148,16 +148,16 @@ fuelLabel = ttk.Progressbar(tracHealth, orient=VERTICAL, variable=fuelPercent)
 fuelLabel.grid(column=3, row=1, rowspan=4, sticky=(N,E,S,W))
 
 ttk.Label(tracHealth, text="Fuel", anchor="center", 
-    font=("",20,"")).grid(column=3, row=0)
+    font=("",18,"")).grid(column=3, row=0)
 
 ttk.Label(tracHealth, text="Coolant\nCelsius", anchor="center", 
-    justify="center", font=("",20,"")).grid(column=1, row=0)
+    justify="center", font=("",18,"")).grid(column=1, row=0)
 
 ttk.Label(tracHealth, text="Engine\nRPM", anchor="center", justify="center",
-    font=("",20,"")).grid(column=0, row=0)
+    font=("",18,"")).grid(column=0, row=0)
 
 ttk.Label(tracHealth, text="Oil PSI\nPressure", anchor="center", 
-    justify="center", font=("",20,"")).grid(column=2, row=0)
+    justify="center", font=("",18,"")).grid(column=2, row=0)
 
 for x in range(3):
     tracHealth.columnconfigure(x, weight=10)
@@ -194,8 +194,8 @@ def setSpeed(requestSpeed):
     #Function for changing speed. requestSpeed is a number (0-whatever
     #the top speed is set for) default is 8mph
     #speedDict is a dictionary that can be obtained by running CalibrateSpeed.py
-    speedDict={0:1000, 1: 1100, 2: 1200, 3: 1500, 4: 1600, 5: 1700, 6: 1800, 
-        7: 1900, 8: 2000}
+    speedDict={0:1000, 1: 1068, 2: 1181, 3: 1288, 4: 1393, 5: 1509, 6: 1610, 
+        7: 1727, 8: 2000}
     speedScaleVal.set(requestSpeed)
     setTargetSpeed(requestSpeed)
     
@@ -215,8 +215,8 @@ def setSpeedonRelease(instanceVar):
         
 speedStyle = ttk.Style()
 speedStyle.configure("Speed.Horizontal.TScale", 
-    sliderthickness="full", 
-    sliderlength=150, 
+    sliderthickness="90", 
+    sliderlength=75, 
     background="orange")    
 speedStyle.map("Speed.Horizontal.TScale",
     background=[("pressed", "orange"),
@@ -276,7 +276,7 @@ v.add_attribute_listener("mode", mode_callback)
 
 inGearStatus = StringVar()
 inGearLabel = ttk.Label(lowerInfo, textvariable=inGearStatus, anchor="center",
-    font=("",24,""))
+    font=("",18,""))
 inGearLabel.grid(column=0, row=0, sticky=(N,E,S,W))
 
 mode_callback(v,"mode",v.mode)
@@ -294,9 +294,9 @@ v.add_attribute_listener("groundspeed", speed_callback)
 
 speedStatus = StringVar()
 speedLabel = ttk.Label(lowerInfo, textvariable=speedStatus, anchor="center",
-    font=("",24,""))
+    font=("",18,""))
 ttk.Label(lowerInfo, text="GPS Speed", anchor="center",
-    font=("",24,"")).grid(column=1, row=0, sticky=(N,E,W))
+    font=("",18,"")).grid(column=1, row=0, sticky=(N,E,W))
 speedLabel.grid(column=1, row=0, sticky=(S,E,W))
 ###End of Speed watcher###
 
@@ -305,11 +305,11 @@ targetSpeed = StringVar()
 targetSpeedLabel = ttk.Label(lowerInfo, 
     textvariable=targetSpeed, 
     anchor="center",
-    font=("",24,""))
+    font=("",18,""))
 ttk.Label(lowerInfo, 
     text="Target Speed", 
     anchor="center",
-    font=("",24,"")).grid(
+    font=("",18,"")).grid(
     column=2, 
     row=0, 
     sticky=(N,E,W))
@@ -334,24 +334,26 @@ def distBwPoints(lat1,lon1,lat2,lon2):
     c=math.sqrt(a*a+b*b)
     #~ print "c=",c
     return c
-    
+
+nextGpsLoc = []
 def getGpsLoc():
     #returns list of lat,lon,track,speed
     # Use the python gps package to access the laptop GPS
+    global nextGpsLoc
     try:
         gpsd = gps.gps(mode=gps.WATCH_ENABLE)
         gotgps=True
         while gotgps:
             gpsd.next()
             if (gpsd.valid & gps.LATLON_SET) != 0:
-                print "got new gps position"
+                # print "got new gps position"
                 nextGpsLoc = [gpsd.fix.latitude, gpsd.fix.longitude, gpsd.fix.track,gpsd.fix.speed]
-                return nextGpsLoc
+                # return nextGpsLoc
     except socket.error:
         print "Error the GPS does not seem to be Connected \n"
 
-# gpsThread = threading.Thread(target=getGpsLoc)
-# gpsThread.start()   
+gpsThread = threading.Thread(target=getGpsLoc)
+gpsThread.start()   
 
 
 def cartUnldLoc(distLeft,distAhead,combineLoc):
@@ -403,6 +405,15 @@ def turnAround():
     setSpeed(3.0)
     nudge=0.0 #this should ensure cart always turns to the right
     setPointForward()
+
+def moveLeft():
+    global nudge
+    nudge=nudge+0.5
+    print "nudge = ",nudge, "\n"
+def moveRight():
+    global nudge
+    nudge=nudge-.5
+    print "nudge = ",nudge, "\n"
     
 sendCartControl = threading.Event()
 sendCartStatus = False
@@ -424,7 +435,7 @@ def sendCart(sendCartControl):
     global turnSet
     global forwardSet
     global sendCartStatus
-    # global nextGpsLoc
+    global nextGpsLoc
     combineLoc=[]
     while True:
         #~ print "sendCartThread is Running"
@@ -435,7 +446,6 @@ def sendCart(sendCartControl):
             time.sleep(1)
             print v.mode.name
         #~ print "Tractor is in Gear \nStarting to get gps location of combine"
-        nextGpsLoc=getGpsLoc()
         if combineLoc!=nextGpsLoc:
             combineLoc=nextGpsLoc
             print combineLoc
@@ -488,7 +498,8 @@ def setApproach():
     global approach
     global nextGpsLoc
     if nextGpsLoc!=[]:
-        approach = nextGpsLoc
+        approach[0]=nextGpsLoc[0]
+        approach[1]=nextGpsLoc[1]
         print "Approach set to here"
         print "GPS coordinates are ", approach[0], " ", approach[1]
         print "ARE YOU SURE THIS IS A SAFE SPOT?????!!!!! \n"
@@ -497,6 +508,19 @@ def setApproach():
             goToApproachButton.grid()
     else:
         print "GPS is not Working"
+
+def goToApproach():
+    global approach
+    # while v.mode.name!="GUIDED":
+    v.mode = VehicleMode("GUIDED")
+    time.sleep(1)
+    print v.mode.name
+    print "got here"
+    cartGoalLoc=LocationGlobal(approach[0],approach[1],0)
+    print "here 2"
+    v.simple_goto(cartGoalLoc)
+    print "here 3"
+    print "Sending Cart to Approach \n", cartGoalLoc
     
 def arm():
     v.channels.overrides["4"] = 2000
@@ -557,7 +581,7 @@ for x in range(2):
     
 buttonStyle = ttk.Style()
 buttonStyle.configure("Default.TButton",
-    font=("",24,""),
+    font=("",18,""),
     anchor="center",
     justify="center")
 buttonStyle.map("Stop.Default.TButton",
@@ -587,13 +611,13 @@ buttonStyle.configure("Nudge.Default.TButton",
 
 RNudgeButton=ttk.Button(buttons, 
     text="Nudge\nRight", 
-    command= print_mode,
+    command= moveRight,
     style="Nudge.Default.TButton")
 RNudgeButton.grid(column=2, row=1, sticky=(N,E,S,W))
 
 LNudgeButton=ttk.Button(buttons, 
     text="Nudge\nLeft", 
-    command= print_mode,
+    command= moveLeft,
     style="Nudge.Default.TButton")
 LNudgeButton.grid(column=0, row=1, sticky=(N,E,S,W))
     
@@ -635,7 +659,7 @@ approachHereButton.grid(column=0, row=0, sticky=(N,E,S,W))
 
 goToApproachButton=ttk.Button(buttons, 
     text="Go To\nApproach", 
-    command= setApproach,
+    command= goToApproach,
     style="Approach.Default.TButton")
 goToApproachButton.grid(column=2, row=0, sticky=(N,E,S,W))
 
