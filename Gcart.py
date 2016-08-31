@@ -552,9 +552,22 @@ def empty():
     v.simple_goto(cartGoalLoc)
     dWpControl.set()
 
-def moveTractorAway():
-    global nudge
-    nudge = 40.0
+approach=[0,0,0,0]
+approach2=[0,0,0,0]
+
+def runMission():
+    global approach
+    global approach2
+    cmds = vehicle.commands
+    cmds.download()
+    cmds.wait_ready()
+    cmds.clear()
+    cmd1=Command( 0, 0, 0, mavutil.mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT, mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 0, 0, 0, 0, 0, 0, approach2[0], approach2[1], 10)
+    cmd2=Command( 0, 0, 0, mavutil.mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT, mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 0, 0, 0, 0, 0, 0, approach[0], approach[1], 10)
+    cmds.add(cmd1)
+    cmds.add(cmd2)
+    cmds.upload() # Send commands
+    vehicle.mode = VehicleMode("AUTO")
 
 def distToWP(dWpControl):
     global sendCartStatus
@@ -598,9 +611,6 @@ def guideRight():
     sendCartStatus=True
     sendCartControl.set()
     setButtons(start=False, gRight=False, LRNudge=True)
-    
-approach=[0,0,0,0]
-approach2=[0,0,0,0]
 
 def setApproach():
     global approach
@@ -710,7 +720,7 @@ def setButtons(start=True, gRight=True, here=True, LRNudge=False, empty=False):
         widgets.grid_remove()
 
     stopButton.grid()
-    moveTractorAwayButton.grid()
+    runMissionButton.grid()
     if v.channels.overrides["5"]==1000:
         armButton.grid()
     elif v.channels.overrides["5"]==2000:
@@ -866,11 +876,11 @@ goToApproachButton2=ttk.Button(terminal,
     style="GoTo.Default.TButton")
 goToApproachButton2.grid(column=1, row=0, sticky=(N,E,S,W))
 
-moveTractorAwayButton=ttk.Button(terminal, 
+runMissionButton=ttk.Button(terminal, 
     text="Move Away", 
-    command= moveTractorAway,
+    command= runMission,
     style="Disarm.Default.TButton")
-moveTractorAwayButton.grid(column=1, row=1, sticky=(N,E,S,W))
+runMissionButton.grid(column=1, row=1, sticky=(N,E,S,W))
 
 v.channels.overrides["5"]=1000
 setButtons()
