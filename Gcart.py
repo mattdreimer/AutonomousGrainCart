@@ -877,7 +877,7 @@ goToApproachButton2=ttk.Button(terminal,
 goToApproachButton2.grid(column=1, row=0, sticky=(N,E,S,W))
 
 runMissionButton=ttk.Button(terminal, 
-    text="Move Away", 
+    text="Run \nMission", 
     command= runMission,
     style="Disarm.Default.TButton")
 runMissionButton.grid(column=1, row=1, sticky=(N,E,S,W))
