@@ -4,7 +4,8 @@ import ttk
 from ttk import *
 import sys
 import Tkinter
-from dronekit import connect, VehicleMode, LocationGlobal
+from dronekit import connect, VehicleMode, LocationGlobal, Command
+from pymavlink import mavutil
 import time
 import threading
 import gps
@@ -425,6 +426,8 @@ unloadCycle = False
 approach1Cycle = False
 approach2Cycle = False
 doGuideRight = False
+runMissionCycle = False
+delayVar = False
 
 turnSet=False
 forwardSet=False
@@ -448,6 +451,8 @@ def sendCart(sendCartControl):
     global approach2Cycle
     global nudge
     global nudgeFront
+    global runMissionCycle
+    global delayVar
     combineLoc=[]
     while True:
         #~ print "sendCartThread is Running"
@@ -516,6 +521,22 @@ def sendCart(sendCartControl):
                 while v.mode.name!="HOLD":
                     v.mode = VehicleMode("HOLD")
                     time.sleep(1)
+        while runMissionCycle:
+            if delayVar:
+                cartGoalLoc=LocationGlobal(approach2[0],approach2[1],0)
+                v.simple_goto(cartGoalLoc)
+                delayVar = False
+            if int(wpDistNum.get())<5:
+                cartGoalLoc=LocationGlobal(approach[0],approach[1],0)
+                v.simple_goto(cartGoalLoc)
+                sendCartControl.clear()
+                runMissionCycle = False
+                dWpControl.set()                
+            if sendCartStatus==False:
+                while v.mode.name!="HOLD":
+                    v.mode = VehicleMode("HOLD")
+                    time.sleep(1)            
+
                                         
 sendCartThread = threading.Thread(target=sendCart, 
     args=(sendCartControl,))
@@ -529,6 +550,8 @@ def stop():
     global unloadCycle
     global approach1Cycle
     global doGuideRight
+    global runMissionCycle
+    runMissionCycle = False
     sendCartControl.clear()
     dWpControl.clear()
     sendCartStatus=False
@@ -556,18 +579,23 @@ approach=[0,0,0,0]
 approach2=[0,0,0,0]
 
 def runMission():
-    global approach
-    global approach2
-    cmds = vehicle.commands
-    cmds.download()
-    cmds.wait_ready()
-    cmds.clear()
-    cmd1=Command( 0, 0, 0, mavutil.mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT, mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 0, 0, 0, 0, 0, 0, approach2[0], approach2[1], 10)
-    cmd2=Command( 0, 0, 0, mavutil.mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT, mavutil.mavlink.MAV_CMD_NAV_WAYPOINT, 0, 0, 0, 0, 0, 0, approach[0], approach[1], 10)
-    cmds.add(cmd1)
-    cmds.add(cmd2)
-    cmds.upload() # Send commands
-    vehicle.mode = VehicleMode("AUTO")
+    global sendCartStatus
+    global sendCartControl
+    global unloadCycle
+    global doGuideRight
+    global delayVar
+    delayVar = True
+    unloadCycle = False
+    sendCartStatus = True
+    sendCartControl.set()
+    global approach2Cycle
+    approach2Cycle = False
+    doGuideRight = False
+    global approach1Cycle
+    approach1Cycle = False
+    global runMissionCycle
+    runMissionCycle = True
+
 
 def distToWP(dWpControl):
     global sendCartStatus
@@ -606,6 +634,8 @@ def guideRight():
     doGuideRight = True
     global unloadCycle
     unloadCycle = True
+    global runMissionCycle
+    runMissionCycle = False
     global sendCartControl
     global sendCartStatus
     sendCartStatus=True
@@ -643,6 +673,8 @@ def goToApproach():
     global unloadCycle
     global doGuideRight
     unloadCycle = False
+    global runMissionCycle
+    runMissionCycle = False
     sendCartStatus = True
     sendCartControl.set()
     global approach1Cycle
@@ -674,6 +706,8 @@ def goToApproach2():
     global unloadCycle
     global doGuideRight
     unloadCycle = False
+    global runMissionCycle
+    runMissionCycle = False
     sendCartStatus = True
     sendCartControl.set()
     global approach2Cycle
@@ -703,6 +737,8 @@ def startUnloading():
     global sendCartStatus
     global unloadCycle
     unloadCycle = True
+    global runMissionCycle
+    runMissionCycle = False
     sendCartStatus=True
     turnSet=False
     forwardSet=False
