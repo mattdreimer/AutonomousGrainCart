@@ -322,7 +322,7 @@ targetSpeedLabel.grid(column=2, row=0, sticky=(S,E,W))
 
 
 ###Start of Buttons###
-offsetAhead=15.0
+offsetAhead=22.0
 offsetLeft=9.5
 def distBwPoints(lat1,lon1,lat2,lon2):
     #returns distance in meters between two points of lat and lon
