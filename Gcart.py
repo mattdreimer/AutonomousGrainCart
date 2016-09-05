@@ -204,6 +204,10 @@ def setSpeed(requestSpeed):
     
     if requestSpeed in speedDict:
         rc8Val=speedDict[requestSpeed]
+    elif requestSpeed < 0:
+        rc8Val=speedDict[0]
+    elif requestSpeed > 13:
+        rc8Val=speedDict[13]
     else:
         #map rc8 value if request speed is between two whole numbers
         lowerVal= math.floor(requestSpeed)
@@ -338,6 +342,32 @@ def distBwPoints(lat1,lon1,lat2,lon2):
     #~ print "c=",c
     return c
 
+def perpDistBwPoints(A,B):
+    #A and B are lists of form [lat, lon, heading, speed]
+    #returns perpindicular distance between A and B ie how far in front of combine is cart?
+    #returns a list in case I also need to return wether or not cart is ahead or behind
+    # for readability
+    lat = 0
+    lon = 1
+    heading = 2
+    speed = 3
+    #change a and b to radians
+    for x in range(3):
+        A[x]=math.radians(A[x])
+        B[x]=math.radians(B[x])
+
+    #Bearing from A to B = atan2(x,y)
+    #x=cos(latB)sin(delta Lon) delta lon = lonB-LonA
+    #y=cos(latA)Sin(latB)-sin(latA)cos(latB)cos(delta Lon)
+    deltaLon = B[lon]-A[lon]
+    x = math.cos(B[lat])*math.sin(deltaLon)
+    y = (math.cos(A[lat])*math.sin(B[lat]))-(math.sin(A[lat])*math.cos(B[lat])*math.cos(deltaLon))
+    bearing = math.atan2(x,y)
+    # print math.degrees(bearing)
+    perpDist = math.cos(A[heading]-bearing)*distBwPoints(math.degrees(A[lat]),math.degrees(A[lon]),math.degrees(B[lat]),math.degrees(B[lon]))
+    print "perp Distance = ", perpDist
+    return perpDist
+
 nextGpsLoc = []
 def getGpsLoc():
     #returns list of lat,lon,track,speed
@@ -449,6 +479,7 @@ def sendCart(sendCartControl):
     global nudge
     global nudgeFront
     combineLoc=[]
+    speedChange = True
     while True:
         #~ print "sendCartThread is Running"
         sendCartControl.wait()
@@ -470,20 +501,36 @@ def sendCart(sendCartControl):
                     # if combineLoc[3]<0.4: #watch if combine stops set tractor to slow
                     #     setSpeed(0)
                     loc=cartUnldLoc(offsetLeft+nudge,offsetAhead+nudgeFront,combineLoc)
+                    cartLoc=v.location.global_frame
+                    distance=distBwPoints(loc[0],loc[1],cartLoc.lat,cartLoc.lon)
+                    perpDist = perpDistBwPoints(list(combineLoc),[cartLoc.lat,cartLoc.lon, 50])
                     #check distance b/w cart and combine if distance is below some 
                     #threshold execute turn cart around only do this once
+                    if turnSet and forwardSet:
+                        if perpDist < 7.50:
+                            if speedScaleVal.get() < 13: 
+                                setSpeed(speedScaleVal.get()+0.05)
+                                speedChange = True
+                                print "speed up" 
+                        elif perpDist > 8.25:
+                            if speedScaleVal.get() > 0:
+                                setSpeed(speedScaleVal.get()-0.2)
+                                speedChange = True
+                                print "slow down"
+                        else:
+                            print "matchSpeed"
+                            if speedChange:
+                                setSpeed((combineLoc[3]*2.23694*1.609)+0.05)
+                                speedChange = False
                     if turnSet==False:
-                        cartLoc=v.location.global_frame
-                        distance=distBwPoints(loc[0],loc[1],cartLoc.lat,cartLoc.lon)
-                        if 30.0>distance:
+                        if 25.0>distance:
                             print "Turning Cart Around \n"
                             turnAround()
                             turnSet=True
                     if turnSet==True and forwardSet==False:
-                        cartLoc=v.location.global_frame
                         distance=distBwPoints(combineLoc[0],combineLoc[1],
                             cartLoc.lat,cartLoc.lon)
-                        if 21.0>distance:
+                        if 14.0>perpDist:
                             bringItClose()
                             forwardSet=True
                             emptyButton.grid()
