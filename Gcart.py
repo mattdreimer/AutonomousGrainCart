@@ -326,7 +326,7 @@ targetSpeedLabel.grid(column=2, row=0, sticky=(S,E,W))
 
 
 ###Start of Buttons###
-offsetAhead=22.0
+offsetAhead=18.0
 offsetLeft=9.5
 def distBwPoints(lat1,lon1,lat2,lon2):
     #returns distance in meters between two points of lat and lon
@@ -365,7 +365,7 @@ def perpDistBwPoints(A,B):
     bearing = math.atan2(x,y)
     # print math.degrees(bearing)
     perpDist = math.cos(A[heading]-bearing)*distBwPoints(math.degrees(A[lat]),math.degrees(A[lon]),math.degrees(B[lat]),math.degrees(B[lon]))
-    print "perp Distance = ", perpDist
+    # print "perp Distance = ", perpDist
     return perpDist
 
 nextGpsLoc = []
@@ -435,7 +435,7 @@ def turnAround():
     global nudge
     print "CART IS TURNING AROUND!"
     print "CART IS MOVING CLOSER! \n"
-    setSpeed(5.0)
+    setSpeed(3.0)
     nudge=0.0 #this should ensure cart always turns to the right
     setPointForward()
 
@@ -455,6 +455,7 @@ unloadCycle = False
 approach1Cycle = False
 approach2Cycle = False
 doGuideRight = False
+autoSpeed = True
 
 turnSet=False
 forwardSet=False
@@ -480,6 +481,7 @@ def sendCart(sendCartControl):
     global nudgeFront
     combineLoc=[]
     speedChange = True
+    global autoSpeed
     while True:
         #~ print "sendCartThread is Running"
         sendCartControl.wait()
@@ -506,24 +508,24 @@ def sendCart(sendCartControl):
                     perpDist = perpDistBwPoints(list(combineLoc),[cartLoc.lat,cartLoc.lon, 50])
                     #check distance b/w cart and combine if distance is below some 
                     #threshold execute turn cart around only do this once
-                    if turnSet and forwardSet:
-                        if perpDist < 7.50:
+                    if turnSet and forwardSet and autoSpeed:
+                        if perpDist < 7.0:
                             if speedScaleVal.get() < 13: 
                                 setSpeed(speedScaleVal.get()+0.05)
                                 speedChange = True
-                                print "speed up" 
-                        elif perpDist > 8.25:
+                                # print "speed up" 
+                        elif perpDist > 8.75:
                             if speedScaleVal.get() > 0:
                                 setSpeed(speedScaleVal.get()-0.2)
                                 speedChange = True
-                                print "slow down"
+                                # print "slow down"
                         else:
-                            print "matchSpeed"
+                            # print "matchSpeed"
                             if speedChange:
-                                setSpeed((combineLoc[3]*2.23694*1.609)+0.05)
+                                setSpeed((combineLoc[3]*2.23694*1.609)-0.0)
                                 speedChange = False
                     if turnSet==False:
-                        if 25.0>distance:
+                        if 25.0>distance or perpDist < 0:
                             print "Turning Cart Around \n"
                             turnAround()
                             turnSet=True
@@ -599,9 +601,14 @@ def empty():
     v.simple_goto(cartGoalLoc)
     dWpControl.set()
 
-def moveTractorAway():
-    global nudge
-    nudge = 40.0
+def autoSpeed():
+    global autoSpeed
+    if autoSpeed:
+        autoSpeed = False
+        autoSpeedButton.configure(style="Arm.Default.TButton")
+    else:
+        autoSpeed = True
+        autoSpeedButton.configure(style="Disarm.Default.TButton")
 
 def distToWP(dWpControl):
     global sendCartStatus
@@ -757,7 +764,7 @@ def setButtons(start=True, gRight=True, here=True, LRNudge=False, empty=False):
         widgets.grid_remove()
 
     stopButton.grid()
-    moveTractorAwayButton.grid()
+    autoSpeedButton.grid()
     if v.channels.overrides["5"]==1000:
         armButton.grid()
     elif v.channels.overrides["5"]==2000:
@@ -913,11 +920,11 @@ goToApproachButton2=ttk.Button(terminal,
     style="GoTo.Default.TButton")
 goToApproachButton2.grid(column=1, row=0, sticky=(N,E,S,W))
 
-moveTractorAwayButton=ttk.Button(terminal, 
-    text="Move Away", 
-    command= moveTractorAway,
+autoSpeedButton=ttk.Button(terminal, 
+    text="Auto Speed", 
+    command= autoSpeed,
     style="Disarm.Default.TButton")
-moveTractorAwayButton.grid(column=1, row=1, sticky=(N,E,S,W))
+autoSpeedButton.grid(column=1, row=1, sticky=(N,E,S,W))
 
 v.channels.overrides["5"]=1000
 setButtons()
