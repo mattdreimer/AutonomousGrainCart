@@ -435,7 +435,7 @@ def turnAround():
     global nudge
     print "CART IS TURNING AROUND!"
     print "CART IS MOVING CLOSER! \n"
-    setSpeed(3.0)
+    setSpeed(4.5)
     nudge=0.0 #this should ensure cart always turns to the right
     setPointForward()
 
@@ -525,7 +525,7 @@ def sendCart(sendCartControl):
                                 setSpeed((combineLoc[3]*2.23694*1.609)-0.0)
                                 speedChange = False
                     if turnSet==False:
-                        if 25.0>distance or perpDist < 0:
+                        if 28.0>distance or perpDist < 0:
                             print "Turning Cart Around \n"
                             turnAround()
                             turnSet=True
