@@ -342,11 +342,12 @@ def distBwPoints(lat1,lon1,lat2,lon2):
     #~ print "c=",c
     return c
 
-def perpDistBwPoints(A,B):
+def vectorDistance(A,B,Front):
     #A and B are lists of form [lat, lon, heading, speed]
-    #returns perpindicular distance between A and B ie how far in front of combine is cart?
-    #returns a list in case I also need to return wether or not cart is ahead or behind
-    # for readability
+    #if Front is true computes how far cart is ahead or behind combine
+    #if Front is false copmutes how far left or right of combine heading cart is
+    #returns vector distances between A and B ie how far in front of combine is cart?
+    #or how far is it to the side
     lat = 0
     lon = 1
     heading = 2
@@ -364,7 +365,10 @@ def perpDistBwPoints(A,B):
     y = (math.cos(A[lat])*math.sin(B[lat]))-(math.sin(A[lat])*math.cos(B[lat])*math.cos(deltaLon))
     bearing = math.atan2(x,y)
     # print math.degrees(bearing)
-    perpDist = math.cos(A[heading]-bearing)*distBwPoints(math.degrees(A[lat]),math.degrees(A[lon]),math.degrees(B[lat]),math.degrees(B[lon]))
+    if Front:
+        perpDist = math.cos(A[heading]-bearing)*distBwPoints(math.degrees(A[lat]),math.degrees(A[lon]),math.degrees(B[lat]),math.degrees(B[lon]))
+    else:
+        perpDist = math.sin(A[heading]-bearing)*distBwPoints(math.degrees(A[lat]),math.degrees(A[lon]),math.degrees(B[lat]),math.degrees(B[lon]))
     # print "perp Distance = ", perpDist
     return perpDist
 
@@ -505,16 +509,18 @@ def sendCart(sendCartControl):
                     loc=cartUnldLoc(offsetLeft+nudge,offsetAhead+nudgeFront,combineLoc)
                     cartLoc=v.location.global_frame
                     distance=distBwPoints(loc[0],loc[1],cartLoc.lat,cartLoc.lon)
-                    perpDist = perpDistBwPoints(list(combineLoc),[cartLoc.lat,cartLoc.lon, 50])
+                    frontDist = vectorDistance(list(combineLoc),[cartLoc.lat,cartLoc.lon, 50],True)
+                    perpDist = vectorDistance(list(combineLoc),[cartLoc.lat,cartLoc.lon, 50],False)
+
                     #check distance b/w cart and combine if distance is below some 
                     #threshold execute turn cart around only do this once
                     if turnSet and forwardSet and autoSpeed:
-                        if perpDist < 7.0:
+                        if frontDist < 7.0:
                             if speedScaleVal.get() < 13: 
                                 setSpeed(speedScaleVal.get()+0.05)
                                 speedChange = True
                                 # print "speed up" 
-                        elif perpDist > 8.75:
+                        elif frontDist > 8.75:
                             if speedScaleVal.get() > 0:
                                 setSpeed(speedScaleVal.get()-0.2)
                                 speedChange = True
@@ -525,19 +531,24 @@ def sendCart(sendCartControl):
                                 setSpeed((combineLoc[3]*2.23694*1.609)-0.0)
                                 speedChange = False
                     if turnSet==False:
-                        if 28.0>distance or perpDist < 0:
+                        if perpDist < 30 and frontDist < 100:
+                            #send the cart outside the line
+                            loc=cartUnldLoc(200,offsetAhead+nudgeFront,combineLoc)
+                        else:
+                            loc=cartUnldLoc(offsetLeft+nudge,offsetAhead+nudgeFront,combineLoc)
+                        if 28.0>distance or frontDist < 0:
                             print "Turning Cart Around \n"
                             turnAround()
                             turnSet=True
+                            loc=cartUnldLoc(offsetLeft+nudge,offsetAhead+nudgeFront,combineLoc)
                     if turnSet==True and forwardSet==False:
                         distance=distBwPoints(combineLoc[0],combineLoc[1],
                             cartLoc.lat,cartLoc.lon)
-                        if 14.0>perpDist:
+                        if 14.0>frontDist:
                             bringItClose()
                             forwardSet=True
                             emptyButton.grid()
-                    #~ print "Distance = ", distance
-                    loc=cartUnldLoc(offsetLeft+nudge,offsetAhead+nudgeFront,combineLoc)
+                        loc=cartUnldLoc(offsetLeft+nudge,offsetAhead+nudgeFront,combineLoc)
                 cartGoalLoc=LocationGlobal(loc[0],loc[1],0)
                 v.simple_goto(cartGoalLoc)
                 # print "Sending Cart to ", cartLoc
