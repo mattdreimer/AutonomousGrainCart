@@ -10,11 +10,17 @@ import threading
 import gps
 import socket
 import math
+import dronekit_sitl
+sitl = dronekit_sitl.start_default()
+connection_string = sitl.connection_string()
+
+top_label_font_size = 10
+label_font_size = 12
 
 #Use this line for connecting with 3dr radio
 v = connect("/dev/telemetry", baud=57600 , wait_ready=False)
 #use this line for connecting to simulation
-#~ v = connect("127.0.0.1:14550", wait_ready=False)
+#v = connect(connection_string, wait_ready=False)
 print "Connected to Tractor \nReady to Go!!!"
 
 root = Tk()
@@ -57,7 +63,7 @@ v.add_attribute_listener("gps_0", gps_callback)
     
 gpsStatus = StringVar()
 gpsLabel = ttk.Label(topInfo, textvariable=gpsStatus, anchor="center", 
-    font=("",12,""))
+    font=("",top_label_font_size,""))
 gpsLabel.grid(column=0, row=0, sticky=(N,E,S,W))
 
 @v.on_message("RADIO")
@@ -71,7 +77,7 @@ def listener(self, name, message):
 
 radioStatus = StringVar()
 radioLabel = ttk.Label(topInfo, textvariable=radioStatus, anchor="center", 
-    font=("",12,""))
+    font=("",top_label_font_size,""))
 radioLabel.grid(column=0, row=1, sticky=(N,E,S,W))
 
 @v.on_message("NAV_CONTROLLER_OUTPUT")
@@ -82,7 +88,7 @@ def listener(self, name, message):
 wpDist = StringVar()
 wpDistNum = StringVar()
 wpDistLabel = ttk.Label(topInfo, textvariable=wpDist, anchor="center", 
-    font=("",12,""))
+    font=("",top_label_font_size,""))
 wpDistLabel.grid(column=1, row=0, sticky=(N,E,S,W))
 
 for x in range(4):
@@ -127,17 +133,17 @@ def listener(self, name, message):
         
 rpmText = StringVar()
 rpmLabel = ttk.Label(tracHealth, textvariable=rpmText, anchor="center", 
-    font=("",16,""))
+    font=("",label_font_size,""))
 rpmLabel.grid(column=0, row=1, rowspan=3, sticky=(N,E,S,W))
 
 coolantText = StringVar()
 coolantLabel = ttk.Label(tracHealth, textvariable=coolantText, anchor="center", 
-    font=("",16,""))
+    font=("",label_font_size,""))
 coolantLabel.grid(column=1, row=1, rowspan=3, sticky=(N,E,S,W))
 
 oilText = StringVar()
 oilLabel = ttk.Label(tracHealth, textvariable=oilText, anchor="center", 
-    font=("",16,""))
+    font=("",label_font_size,""))
 oilLabel.grid(column=2, row=1, rowspan=3, sticky=(N,E,S,W))
 
 fuelStyle = ttk.Style()
@@ -151,16 +157,16 @@ fuelLabel = ttk.Progressbar(tracHealth, orient=VERTICAL, variable=fuelPercent)
 fuelLabel.grid(column=3, row=1, rowspan=4, sticky=(N,E,S,W))
 
 ttk.Label(tracHealth, text="Fuel", anchor="center", 
-    font=("",18,"")).grid(column=3, row=0)
+    font=("",label_font_size,"")).grid(column=3, row=0)
 
 ttk.Label(tracHealth, text="Coolant\nCelsius", anchor="center", 
-    justify="center", font=("",18,"")).grid(column=1, row=0)
+    justify="center", font=("",label_font_size,"")).grid(column=1, row=0)
 
 ttk.Label(tracHealth, text="Engine\nRPM", anchor="center", justify="center",
-    font=("",18,"")).grid(column=0, row=0)
+    font=("",label_font_size,"")).grid(column=0, row=0)
 
 ttk.Label(tracHealth, text="Oil PSI\nPressure", anchor="center", 
-    justify="center", font=("",18,"")).grid(column=2, row=0)
+    justify="center", font=("",label_font_size,"")).grid(column=2, row=0)
 
 for x in range(3):
     tracHealth.columnconfigure(x, weight=10)
@@ -245,7 +251,7 @@ speedSel.rowconfigure(0, weight=1)
 ttk.Label(root, 
     text="Speed Control", 
     anchor="center",
-    font=("",18,"")
+    font=("",label_font_size,"")
     ).grid(column=0, 
         columnspan=10, 
         row=6, 
@@ -254,7 +260,7 @@ ttk.Label(root,
 ttk.Label(root, 
     text="Slow", 
     anchor="center",
-    font=("",18,"")
+    font=("",label_font_size,"")
     ).grid(column=0, 
         row=6, 
         sticky=(S,E,W))
@@ -262,7 +268,7 @@ ttk.Label(root,
 ttk.Label(root, 
     text="Fast", 
     anchor="center",
-    font=("",18,"")
+    font=("",label_font_size,"")
     ).grid(column=9, 
         row=6, 
         sticky=(S,E,W))
@@ -283,7 +289,7 @@ v.add_attribute_listener("mode", mode_callback)
 
 inGearStatus = StringVar()
 inGearLabel = ttk.Label(lowerInfo, textvariable=inGearStatus, anchor="center",
-    font=("",18,""))
+    font=("",label_font_size,""))
 inGearLabel.grid(column=0, row=0, sticky=(N,E,S,W))
 
 mode_callback(v,"mode",v.mode)
@@ -301,9 +307,9 @@ v.add_attribute_listener("groundspeed", speed_callback)
 
 speedStatus = StringVar()
 speedLabel = ttk.Label(lowerInfo, textvariable=speedStatus, anchor="center",
-    font=("",18,""))
+    font=("",label_font_size,""))
 ttk.Label(lowerInfo, text="GPS Speed", anchor="center",
-    font=("",18,"")).grid(column=1, row=0, sticky=(N,E,W))
+    font=("",label_font_size,"")).grid(column=1, row=0, sticky=(N,E,W))
 speedLabel.grid(column=1, row=0, sticky=(S,E,W))
 ###End of Speed watcher###
 
@@ -312,11 +318,11 @@ targetSpeed = StringVar()
 targetSpeedLabel = ttk.Label(lowerInfo, 
     textvariable=targetSpeed, 
     anchor="center",
-    font=("",18,""))
+    font=("",label_font_size,""))
 ttk.Label(lowerInfo, 
     text="Target Speed", 
     anchor="center",
-    font=("",18,"")).grid(
+    font=("",label_font_size,"")).grid(
     column=2, 
     row=0, 
     sticky=(N,E,W))
@@ -327,7 +333,7 @@ targetSpeedLabel.grid(column=2, row=0, sticky=(S,E,W))
 
 ###Start of Buttons###
 offsetAhead=18.0
-offsetLeft=9.5
+offsetLeft=8.5
 def distBwPoints(lat1,lon1,lat2,lon2):
     #returns distance in meters between two points of lat and lon
     #lat and lon need to be in decimal degrees
@@ -528,7 +534,7 @@ def sendCart(sendCartControl):
                         else:
                             # print "matchSpeed"
                             if speedChange:
-                                setSpeed((combineLoc[3]*2.23694*1.609)-0.0)
+                                setSpeed((combineLoc[3]*2.23694*1.609)+0.1)
                                 speedChange = False
                     if turnSet==False:
                         if perpDist < 30 and frontDist < 100:
@@ -811,7 +817,7 @@ for x in range(2):
     
 buttonStyle = ttk.Style()
 buttonStyle.configure("Default.TButton",
-    font=("",18,""),
+    font=("",label_font_size,""),
     anchor="center",
     justify="center")
 buttonStyle.map("Stop.Default.TButton",
